@@ -1,0 +1,116 @@
+/* 自定义特效壁纸 · 工坊样式（配合 index.html 的 CSS 变量） */
+main.studio-mode > *:not(#studio){display:none !important}
+body.studio-mode aside .card{display:none}
+
+#studio{padding:18px 22px 40px; max-width:1500px}
+
+.st-head{display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; margin-bottom:14px}
+.st-head h1{margin:0; font-size:20px; letter-spacing:.2px}
+.st-head p{margin:0 0 2px; color:var(--text-3); font-size:12.5px}
+.st-state{margin-left:auto; display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-2)}
+.st-state .live{width:7px; height:7px; border-radius:50%; background:#2fbf71; box-shadow:0 0 0 3px rgba(47,191,113,.16)}
+
+.st-grid{display:grid; grid-template-columns:minmax(0,1.55fr) 380px; gap:18px; align-items:start}
+@media (max-width:1180px){ .st-grid{grid-template-columns:1fr} }
+
+.st-stage-wrap{position:relative}
+.stage{
+  position:relative; width:100%; aspect-ratio:16/9; border-radius:16px; overflow:hidden;
+  background:#0b1020; box-shadow:var(--shadow); border:1px solid var(--line);
+  isolation:isolate;
+}
+.stage > *{position:absolute; inset:0; width:100%; height:100%}
+.stage img, .stage video{object-fit:cover; display:none}
+.stage video{background:#000}
+#pvCanvas{position:absolute; inset:0; width:100%; height:100%; display:block; cursor:crosshair}
+.stage-tip{
+  position:absolute; left:12px; bottom:10px; z-index:5; font-size:12px; color:#fff;
+  background:rgba(10,14,24,.42); border-radius:8px; padding:4px 9px;
+  backdrop-filter:blur(6px); pointer-events:none; opacity:.9;
+  top:auto; right:auto; width:auto; height:auto;
+}
+.st-actions{display:flex; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap}
+.st-actions input[type=text]{
+  flex:1; min-width:160px; height:40px; border-radius:11px; border:1px solid var(--line);
+  background:var(--panel-2); padding:0 12px; outline:none;
+}
+.st-actions input[type=text]:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+
+.st-panel{
+  background:var(--panel); border:1px solid var(--line); border-radius:16px;
+  box-shadow:var(--shadow); padding:6px 0 12px; max-height:calc(100vh - 130px); overflow:auto;
+}
+.st-sec{border-bottom:1px solid var(--line); padding:12px 16px 14px}
+.st-sec:last-child{border-bottom:none}
+.st-sec > h3{
+  margin:0 0 10px; font-size:13px; font-weight:700; color:var(--text);
+  display:flex; align-items:center; gap:8px;
+}
+.st-sec > h3 .tagn{margin-left:auto; font-weight:500; font-size:11.5px; color:var(--text-3)}
+.st-seg{display:flex; gap:6px; margin-bottom:10px}
+.st-seg button{
+  flex:1; height:32px; border-radius:9px; background:var(--panel-2); border:1px solid var(--line);
+  font-size:12.5px; color:var(--text-2);
+}
+.st-seg button.on{background:var(--accent-soft); border-color:var(--accent); color:var(--accent); font-weight:600}
+
+.st-line{display:flex; align-items:center; gap:9px; margin:7px 0; font-size:12.5px; color:var(--text-2)}
+.st-line > span:first-child{width:52px; flex:none; color:var(--text-2)}
+.st-line input[type=range]{flex:1; accent-color:var(--accent); height:4px}
+.st-line b{width:38px; text-align:right; font-weight:600; color:var(--text-3); font-size:11.5px}
+.st-line select{
+  height:30px; flex:1; border-radius:8px; border:1px solid var(--line);
+  background:var(--panel-2); padding:0 8px; font-size:12.5px;
+}
+.st-line input[type=color]{
+  width:34px; height:26px; padding:0; border:1px solid var(--line); border-radius:7px;
+  background:none; flex:none;
+}
+.st-line input[type=text]{
+  flex:1; height:30px; border-radius:8px; border:1px solid var(--line);
+  background:var(--panel-2); padding:0 9px; font-size:12.5px; outline:none;
+}
+
+.fx-item{border:1px solid var(--line); border-radius:11px; margin-bottom:7px; overflow:hidden; background:var(--panel-2)}
+.fx-item.on{border-color:var(--accent); background:var(--accent-soft)}
+.fx-top{display:flex; align-items:center; gap:9px; padding:9px 11px; cursor:pointer; user-select:none}
+.fx-top .nm{font-size:13px; font-weight:600}
+.fx-top .sw{margin-left:auto; display:flex; align-items:center}
+.fx-body{padding:2px 11px 10px}
+.fx-body[hidden]{display:none}
+
+.st-chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; max-height:112px; overflow:auto}
+.st-chip{
+  font-size:11.5px; padding:4px 9px; border-radius:20px; border:1px solid var(--line);
+  background:var(--panel-2); color:var(--text-2); max-width:100%;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.st-chip:hover{border-color:var(--accent); color:var(--accent)}
+.st-chip img{width:26px; height:16px; object-fit:cover; border-radius:4px; display:block}
+
+.st-mine{margin-top:24px}
+.st-mine h3{margin:0 0 12px; font-size:15px; display:flex; align-items:center; gap:8px}
+.st-mine h3 .cnt{font-size:12px; color:var(--text-3); font-weight:500}
+.st-cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(228px,1fr)); gap:14px}
+.st-card{
+  background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden;
+  box-shadow:var(--shadow); transition:transform .14s, border-color .14s;
+}
+.st-card:hover{transform:translateY(-2px); border-color:var(--accent)}
+.st-card .th{aspect-ratio:16/9; background:linear-gradient(135deg,#0b1020,#243b6b); position:relative}
+.st-card .th img{width:100%; height:100%; object-fit:cover; display:block}
+.st-card .th .ph{position:absolute; inset:0; display:grid; place-items:center; color:#8fa4c8; font-size:12px}
+.st-card .bd{padding:10px 12px 12px}
+.st-card .nm{font-size:13.5px; font-weight:600; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.st-card .sm{font-size:11.5px; color:var(--text-3); height:16px; overflow:hidden}
+.st-card .ops{display:flex; gap:6px; margin-top:10px}
+.st-card .ops button{
+  flex:1; height:30px; border-radius:8px; font-size:12px; border:1px solid var(--line);
+  background:var(--panel-2); color:var(--text-2);
+}
+.st-card .ops button.pri{background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600}
+.st-card .ops button:hover{filter:brightness(1.05)}
+.st-empty{
+  border:1px dashed var(--line); border-radius:14px; padding:26px; text-align:center;
+  color:var(--text-3); font-size:13px;
+}

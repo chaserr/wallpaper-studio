@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>壁纸工坊 · Wallpaper Studio</title>
+<style>
+  :root{
+    --bg:#f4f6fa; --panel:#ffffff; --panel-2:#fafbfd; --line:#e6e9f0;
+    --text:#1a1f2b; --text-2:#5d6779; --text-3:#8b95a7;
+    --accent:#3f6bf5; --accent-soft:#eaf0ff; --danger:#e2544a;
+    --shadow:0 1px 2px rgba(20,30,60,.05), 0 8px 24px rgba(20,30,60,.06);
+    --radius:14px;
+  }
+  [data-theme="dark"]{
+    --bg:#0f1218; --panel:#171b23; --panel-2:#1c212b; --line:#262c38;
+    --text:#eef1f7; --text-2:#a7b0c0; --text-3:#7b8598;
+    --accent:#6c8cff; --accent-soft:#1e2740; --danger:#ff6b5e;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:14px/1.55 "Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  }
+  button{font:inherit; cursor:pointer; border:none; background:none; color:inherit}
+  input,select{font:inherit; color:inherit}
+  ::selection{background:var(--accent); color:#fff}
+
+  /* ---------- 顶栏 ---------- */
+  header{
+    position:sticky; top:0; z-index:30;
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap; row-gap:10px;
+    padding:12px 22px; background:color-mix(in srgb, var(--panel) 88%, transparent);
+    backdrop-filter:blur(12px); border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:15px; letter-spacing:.2px; white-space:nowrap}
+  .logo{
+    width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+    background:linear-gradient(135deg,#5b8cff,#8f6bff); color:#fff; font-size:15px;
+    box-shadow:0 4px 12px rgba(91,140,255,.35);
+  }
+  .searchwrap{flex:1; display:flex; align-items:center; gap:8px; max-width:760px}
+  .searchbox{
+    flex:1; display:flex; align-items:center; gap:8px;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:11px;
+    padding:0 12px; height:40px; transition:border-color .15s, box-shadow .15s;
+  }
+  .searchbox:focus-within{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+  .searchbox svg{flex:none; opacity:.5}
+  #q{flex:1; border:none; outline:none; background:none; height:100%; font-size:14px}
+  #q::placeholder{color:var(--text-3)}
+  select{
+    border:1px solid var(--line); background:var(--panel-2); height:40px;
+    border-radius:11px; padding:0 10px; outline:none;
+  }
+  .btn{
+    height:40px; padding:0 16px; border-radius:11px; font-weight:600;
+    display:inline-flex; align-items:center; gap:6px; justify-content:center;
+    background:var(--accent); color:#fff; transition:filter .15s, transform .1s;
+    white-space:nowrap;
+  }
+  .btn:hover{filter:brightness(1.06)}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:var(--panel-2); color:var(--text-2); border:1px solid var(--line)}
+  .btn.ghost:hover{color:var(--text); border-color:var(--text-3)}
+  .icon-btn{
+    width:40px;height:40px;border-radius:11px;border:1px solid var(--line);
+    background:var(--panel-2); display:grid; place-items:center; color:var(--text-2);
+  }
+  .icon-btn:hover{color:var(--text)}
+
+  /* ---------- 布局 ---------- */
+  .layout{display:grid; grid-template-columns:232px 1fr; gap:0; align-items:start}
+  aside{
+    position:sticky; top:65px; height:calc(100vh - 65px); overflow-y:auto;
+    padding:18px 14px 30px; border-right:1px solid var(--line);
+  }
+  aside::-webkit-scrollbar, main::-webkit-scrollbar{width:10px}
+  aside::-webkit-scrollbar-thumb, main::-webkit-scrollbar-thumb{
+    background:var(--line); border-radius:8px; border:3px solid transparent; background-clip:content-box;
+  }
+  .side-title{
+    font-size:11px; font-weight:700; letter-spacing:.12em; color:var(--text-3);
+    text-transform:uppercase; margin:0 0 8px 10px;
+  }
+  .nav{display:flex; flex-direction:column; gap:2px; margin-bottom:22px}
+  .nav button{
+    display:flex; align-items:center; gap:9px; width:100%;
+    padding:9px 10px; border-radius:10px; color:var(--text-2); font-weight:500; text-align:left;
+  }
+  .nav button:hover{background:var(--panel); color:var(--text)}
+  .nav button.active{background:var(--accent-soft); color:var(--accent); font-weight:600}
+  .nav .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.55}
+  .nav button.active .dot{opacity:1}
+
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin:0 4px 22px}
+  .chip{
+    padding:5px 11px; border-radius:20px; font-size:12.5px;
+    background:var(--panel); border:1px solid var(--line); color:var(--text-2);
+  }
+  .chip:hover{border-color:var(--accent); color:var(--accent)}
+
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:14px; margin-bottom:14px; box-shadow:var(--shadow);
+  }
+  .card h4{margin:0 0 10px; font-size:13px; display:flex; align-items:center; gap:6px}
+  .row{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px}
+  .row span{font-size:12.5px; color:var(--text-2)}
+  .switch{position:relative; width:40px; height:23px; flex:none}
+  .switch input{opacity:0; width:0; height:0; position:absolute}
+  .track{
+    position:absolute; inset:0; background:var(--line); border-radius:20px;
+    transition:background .18s; cursor:pointer;
+  }
+  .track:before{
+    content:""; position:absolute; width:17px; height:17px; border-radius:50%;
+    background:#fff; top:3px; left:3px; transition:transform .18s; box-shadow:0 1px 3px rgba(0,0,0,.2);
+  }
+  .switch input:checked + .track{background:var(--accent)}
+  .switch input:checked + .track:before{transform:translateX(17px)}
+  .mini-select{height:30px; border-radius:8px; padding:0 6px; font-size:12.5px}
+  .hint{font-size:11.5px; color:var(--text-3); line-height:1.5; margin:8px 0 0}
+  .filebtn{
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    border:1px dashed var(--line); border-radius:10px; padding:12px 8px;
+    color:var(--text-2); font-size:12.5px; transition:.15s; width:100%;
+  }
+  .filebtn:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft)}
+
+  main{padding:20px 24px 80px; min-height:60vh}
+  .main-head{display:flex; align-items:baseline; gap:10px; margin-bottom:16px; flex-wrap:wrap}
+  .main-head h1{font-size:19px; margin:0; letter-spacing:-.2px}
+  .main-head .meta{font-size:12.5px; color:var(--text-3)}
+  /* ---------- Wallhaven 筛选条 ---------- */
+  .filterbar{display:none; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center}
+  .filterbar.show{display:flex}
+  .filterbar label{
+    display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-2);
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:4px 8px 4px 11px; box-shadow:var(--shadow);
+  }
+  .filterbar select{border:none; background:none; height:26px; padding:0 2px; font-size:12.5px; outline:none; font-weight:600; color:var(--text)}
+  .tagline{font-size:11.5px; color:var(--text-3); margin-left:auto}
+
+  /* ---------- 网格 ---------- */
+  .grid{
+    display:grid; gap:16px;
+    grid-template-columns:repeat(auto-fill, minmax(268px, 1fr));
+  }
+  .tile{
+    position:relative; border-radius:var(--radius); overflow:hidden;
+    background:var(--panel-2); border:1px solid var(--line);
+    box-shadow:var(--shadow); cursor:zoom-in;
+    animation:pop .35s ease both;
+  }
+  @keyframes pop{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+  .tile .ph{width:100%; aspect-ratio:16/10; display:block; object-fit:cover; background:var(--panel-2); transition:transform .5s cubic-bezier(.2,.7,.3,1)}
+  .tile:hover .ph{transform:scale(1.035)}
+  .tile .cap{
+    position:absolute; left:0; right:0; bottom:0; padding:26px 12px 11px;
+    background:linear-gradient(to top, rgba(8,12,20,.82), rgba(8,12,20,.28) 55%, transparent);
+    color:#fff; font-size:12.5px; line-height:1.4;
+    opacity:0; transform:translateY(6px); transition:.22s;
+  }
+  .tile:hover .cap{opacity:1; transform:none}
+  .tile .cap p{margin:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; text-shadow:0 1px 3px rgba(0,0,0,.5)}
+  .quick{
+    position:absolute; top:10px; right:10px; display:flex; gap:6px;
+    opacity:0; transform:translateY(-4px); transition:.22s;
+  }
+  .tile:hover .quick{opacity:1; transform:none}
+  .quick button{
+    width:34px; height:34px; border-radius:10px; display:grid; place-items:center;
+    background:rgba(255,255,255,.92); color:#1a1f2b; box-shadow:0 2px 8px rgba(0,0,0,.18);
+  }
+  .quick button:hover{background:#fff; color:var(--accent)}
+  .quick button.del{color:#8a3a34}
+  .quick button.del:hover{background:#e2544a; color:#fff}
+  .tile .delmask{
+    position:absolute; inset:0; display:none; flex-direction:column; align-items:center;
+    justify-content:center; gap:11px; z-index:4; background:rgba(8,12,20,.74);
+    backdrop-filter:blur(3px); color:#fff; font-size:13px;
+  }
+  .tile.arm .delmask{display:flex}
+  .tile .delmask p{margin:0; font-weight:600; text-shadow:0 1px 4px rgba(0,0,0,.4)}
+  .tile .delmask .delrow{display:flex; gap:8px}
+  .tile .delmask button{
+    padding:7px 16px; border-radius:9px; font-size:12.5px; font-weight:600;
+    background:rgba(255,255,255,.94); color:#141a24;
+  }
+  .tile .delmask button.dok{background:#e2544a; color:#fff}
+  .tile .delmask button.dok:hover{background:#cf463c}
+  .badge{
+    position:absolute; top:10px; left:10px; font-size:11px; padding:3px 8px;
+    border-radius:20px; background:rgba(10,14,22,.55); color:#fff; backdrop-filter:blur(4px);
+  }
+  .skeleton{aspect-ratio:16/10; border-radius:var(--radius); background:linear-gradient(100deg, var(--panel-2) 30%, var(--line) 50%, var(--panel-2) 70%); background-size:200% 100%; animation:sh 1.2s infinite}
+  @keyframes sh{from{background-position:180% 0} to{background-position:-40% 0}}
+
+  /* ---------- 动态壁纸 ---------- */
+  .dtile{
+    position:relative; border-radius:var(--radius); overflow:hidden; background:#0b0d12;
+    border:1px solid var(--line); box-shadow:var(--shadow); animation:pop .35s ease both;
+  }
+  .dtile .ph{width:100%; aspect-ratio:16/10; object-fit:cover; display:block; transition:transform .5s}
+  .dtile:hover .ph{transform:scale(1.04)}
+  .dtile .dinfo{
+    position:absolute; left:0; right:0; bottom:0; padding:24px 12px 10px;
+    background:linear-gradient(to top, rgba(6,9,14,.9), transparent); color:#fff; font-size:12px;
+  }
+  .dtile .dinfo b{display:block; font-weight:600; font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .dtile .dinfo span{opacity:.72; font-size:11px}
+  .dtile .dacts{
+    position:absolute; inset:auto 0 0 0; top:0; display:flex; align-items:center; justify-content:center; gap:8px;
+    background:rgba(6,9,14,.42); opacity:0; transition:.2s;
+  }
+  .dtile:hover .dacts{opacity:1}
+  .dacts button{
+    padding:7px 14px; border-radius:9px; font-size:12.5px; font-weight:600;
+    background:rgba(255,255,255,.94); color:#141a24;
+  }
+  .dacts button:hover{background:#fff}
+  .dacts button.del{background:rgba(226,84,74,.92); color:#fff}
+  .dtile.playing{border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft), var(--shadow)}
+  .live{
+    position:absolute; top:10px; left:10px; display:flex; align-items:center; gap:5px;
+    font-size:11px; padding:3px 9px; border-radius:20px; background:var(--accent); color:#fff;
+  }
+  .live i{width:6px;height:6px;border-radius:50%;background:#fff;animation:blink 1.4s infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .dynbar{
+    display:none; align-items:center; gap:12px; flex-wrap:wrap;
+    border:1px solid var(--accent); background:var(--accent-soft);
+    border-radius:12px; padding:11px 14px; margin-bottom:16px;
+  }
+  .dynbar.show{display:flex}
+  .dynbar .t{font-weight:600; color:var(--accent); font-size:13px}
+  .dynbar .s{font-size:12px; color:var(--text-2); flex:1; min-width:120px}
+  .dynbar button{
+    padding:6px 13px; border-radius:9px; font-size:12.5px; font-weight:600;
+    background:var(--danger); color:#fff;
+  }
+
+  /* ---------- 分段切换 / 在线素材 ---------- */
+  .seg{
+    display:inline-flex; padding:3px; gap:2px; border-radius:10px;
+    background:var(--panel-2); border:1px solid var(--line); margin-left:auto;
+  }
+  .seg button{
+    padding:5px 13px; border-radius:8px; font-size:12.5px; font-weight:600;
+    color:var(--text-3); background:transparent;
+  }
+  .seg button.on{background:var(--panel); color:var(--accent); box-shadow:var(--shadow)}
+  #mxbar .chips{margin:0}
+  #mxbar .chip{padding:5px 12px; font-size:12px}
+  #mxbar .chip.on{background:var(--accent); color:#fff; border-color:var(--accent)}
+  .mtag{
+    position:absolute; top:10px; right:10px; font-size:10.5px; padding:2px 8px;
+    border-radius:20px; background:rgba(6,9,14,.62); color:#fff; letter-spacing:.3px;
+  }
+  .dtile .ddesc{
+    position:absolute; inset:0; display:flex; align-items:flex-end; padding:12px;
+    background:linear-gradient(to top, rgba(6,9,14,.92), rgba(6,9,14,.35) 55%, transparent);
+    color:#fff; font-size:11.5px; line-height:1.5; opacity:0; transition:.2s;
+    overflow:hidden; padding-bottom:34px;
+  }
+  .dtile:hover .ddesc{opacity:1}
+  .lanurl{
+    display:block; font-family:ui-monospace,Consolas,monospace; font-size:11.5px;
+    color:var(--accent); word-break:break-all; margin:2px 0 6px; cursor:pointer;
+  }
+
+  .empty{
+    grid-column:1/-1; text-align:center; padding:70px 20px; color:var(--text-3);
+  }  .empty b{display:block; color:var(--text-2); font-size:15px; margin-bottom:6px}
+  .spinner{width:22px;height:22px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--accent);animation:sp .7s linear infinite;margin:0 auto 12px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* ---------- 预览 ---------- */
+  .modal{
+    position:fixed; inset:0; z-index:80; display:none;
+    background:rgba(8,10,16,.72); backdrop-filter:blur(10px);
+    align-items:center; justify-content:center; padding:28px;
+  }
+  .modal.open{display:flex; animation:fade .18s ease}
+  @keyframes fade{from{opacity:0} to{opacity:1}}
+  .modal-body{
+    background:var(--panel); border-radius:18px; overflow:hidden;
+    width:min(1080px,100%); max-height:calc(100vh - 56px); display:flex; flex-direction:column;
+    box-shadow:0 30px 80px rgba(0,0,0,.4);
+  }
+  .modal-img{flex:1; min-height:0; background:#0b0d12; display:grid; place-items:center; overflow:hidden}
+  .modal-img img{max-width:100%; max-height:calc(100vh - 200px); display:block; object-fit:contain}
+  .modal-foot{display:flex; align-items:center; gap:12px; padding:14px 18px; border-top:1px solid var(--line)}
+  .modal-foot .title{flex:1; font-size:13px; color:var(--text-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  #mDel{color:#e2544a; border-color:rgba(226,84,74,.45)}
+  #mDel[hidden]{display:none}
+  #mDel:hover{background:rgba(226,84,74,.1); border-color:#e2544a}
+
+  /* ---------- Toast ---------- */
+  .toasts{position:fixed; right:22px; bottom:22px; z-index:120; display:flex; flex-direction:column; gap:10px; align-items:flex-end}
+  .toast{
+    background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--accent);
+    padding:11px 15px; border-radius:11px; box-shadow:var(--shadow); font-size:13px;
+    max-width:340px; animation:slide .25s ease both;
+  }
+  .toast.err{border-left-color:var(--danger)}
+  .pbar{height:4px; background:var(--line); border-radius:3px; margin-top:8px; overflow:hidden}
+  .pbar i{display:block; height:100%; width:0; background:var(--accent); transition:width .35s ease}
+  @keyframes slide{from{opacity:0; transform:translateX(16px)} to{opacity:1; transform:none}}
+
+  .footnote{margin-top:28px; font-size:11.5px; color:var(--text-3); line-height:1.7; max-width:820px}
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr}
+    aside{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);
+          display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:0 14px; align-items:start}
+    .side-title{grid-column:1/-1; margin-top:10px}
+    .nav,.chips{grid-column:1/-1}
+    aside .card{margin-bottom:10px}
+    .searchwrap{order:3; flex-basis:100%; max-width:none}
+  }
+  @media (max-width:620px){
+    .searchwrap{gap:6px}
+    .searchwrap .btn{padding:0 12px}
+    main{padding:16px 14px 60px}
+    header{padding:10px 14px}
+  }
+</style>
+<link rel="stylesheet" href="/ui/studio.css">
+</head>
+<body>
+
+<header>
+  <div class="brand"><div class="logo">◐</div>壁纸工坊</div>
+  <div class="searchwrap">
+    <div class="searchbox">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" placeholder="搜索壁纸，例如：星空 4K / 极简 灰 / 赛博朋克" autocomplete="off">
+    </div>
+    <select id="size" title="尺寸筛选">
+      <option value="wallpaper">壁纸级大图</option>
+      <option value="large">大图</option>
+      <option value="all">全部尺寸</option>
+    </select>
+    <button class="btn" id="btnSearch">搜索</button>
+  </div>
+  <button class="icon-btn" id="btnTheme" title="切换主题">◑</button>
+</header>
+
+<div class="layout">
+  <aside>
+    <p class="side-title">浏览</p>
+    <div class="nav">
+      <button data-tab="studio"><i class="dot"></i>特效壁纸 · 自制</button>
+      <button data-tab="dyn"><i class="dot"></i>动态壁纸 <span id="dynBadge" style="margin-left:auto;font-size:11px;opacity:.7"></span></button>
+      <button data-tab="daily" class="active"><i class="dot"></i>必应每日精选</button>
+      <button data-tab="wh"><i class="dot"></i>Wallhaven 高清</button>
+      <button data-tab="search"><i class="dot"></i>必应图片搜索</button>
+      <button data-tab="library"><i class="dot"></i>我的图库</button>
+    </div>
+
+    <p class="side-title">热门标签</p>
+    <div class="chips" id="chips"></div>
+
+    <div class="card">
+      <h4>🎬 动态壁纸</h4>
+      <p class="hint" id="dynHint">导入视频/GIF，或去「在线素材」挑 Mixkit 的 1080P 视频，直接铺在桌面循环播放。</p>
+      <button class="filebtn" id="btnDynPick">＋ 导入动态壁纸</button>
+      <input type="file" id="dynFile" accept="video/*,.gif" hidden>
+      <div class="row" style="margin-top:10px;margin-bottom:0">
+        <span id="dynCount">已存 0 个</span>
+        <button class="chip" id="btnDynFolder">打开文件夹</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>🔁 自动换壁纸</h4>
+      <div class="row">
+        <span>定时轮播图库</span>
+        <label class="switch"><input type="checkbox" id="rotOn"><i class="track"></i></label>
+      </div>
+      <div class="row">
+        <span>间隔</span>
+        <select id="rotMin" class="mini-select">
+          <option value="5">5 分钟</option>
+          <option value="15">15 分钟</option>
+          <option value="30" selected>30 分钟</option>
+          <option value="60">1 小时</option>
+          <option value="180">3 小时</option>
+        </select>
+      </div>
+      <p class="hint" id="rotHint">从「我的图库」里随机挑一张轮换。</p>
+    </div>
+
+    <div class="card">
+      <h4>📁 本地壁纸</h4>
+      <button class="filebtn" id="btnPick">选择本机图片设为壁纸</button>
+      <input type="file" id="file" accept="image/*,video/mp4" hidden>
+      <p class="hint">选择后会复制一份到图库，并立即设为桌面壁纸。</p>
+      <div class="row" style="margin-top:10px;margin-bottom:0">
+        <span id="libCount">图库 0 张</span>
+        <button class="chip" id="btnFolder">打开文件夹</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>🌐 分享给别人用</h4>
+      <div class="row">
+        <span>局域网访问</span>
+        <label class="switch"><input type="checkbox" id="lanOn"><i class="track"></i></label>
+      </div>
+      <div id="lanUrls"><p class="hint">正在获取本机地址…</p></div>
+      <button class="chip" id="btnCopyLan" style="width:100%">复制访问链接</button>
+      <p class="hint">同一 WiFi 下的手机或电脑，用浏览器打开上面地址即可浏览、下载、换壁纸。改动开关后需重启程序生效。</p>
+    </div>
+
+    <div class="card">
+      <h4>↩️ 上一张</h4>
+      <button class="btn ghost" style="width:100%" id="btnBack">换回之前那张</button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="dynbar" id="dynbar">
+      <span class="t">● 动态壁纸播放中</span>
+      <span class="s" id="dynbarName"></span>
+      <button id="btnStopDyn">停止，恢复静态壁纸</button>
+    </div>
+    <div class="main-head">
+      <h1 id="title">必应每日精选</h1>
+      <span class="meta" id="meta"></span>
+      <div class="seg" id="dynSeg" style="display:none">
+        <button data-mode="local" class="on">我的素材</button>
+        <button data-mode="online">在线素材</button>
+      </div>
+    </div>
+    <div class="filterbar" id="mxbar">
+      <div class="chips" id="mxChips"></div>
+      <span class="tagline" id="mxTip">Mixkit 免费视频 · 1080P 直连下载</span>
+    </div>
+    <div class="filterbar" id="whbar">
+      <label>分类
+        <select id="whCat">
+          <option value="111">全部</option>
+          <option value="100">综合</option>
+          <option value="010">动漫</option>
+          <option value="001">人物</option>
+        </select>
+      </label>
+      <label>分辨率
+        <select id="whRes">
+          <option value="">不限</option>
+          <option value="3840x2160" selected>4K 及以上</option>
+          <option value="2560x1440">2K 及以上</option>
+          <option value="1920x1080">1080P 及以上</option>
+        </select>
+      </label>
+      <label>排序
+        <select id="whSort">
+          <option value="toplist">热门</option>
+          <option value="date_added">最新</option>
+          <option value="views">浏览最多</option>
+          <option value="favorites">收藏最多</option>
+          <option value="random">随机</option>
+        </select>
+      </label>
+      <label title="4K 原图走代理较慢，勾选后改用预览图，速度快很多">
+        <input type="checkbox" id="whFast" style="accent-color:var(--accent)"> 快速版
+      </label>
+      <span class="tagline" id="whTip"></span>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div id="sentinel" style="height:1px"></div>
+    <p class="footnote">
+      图片来源：必应每日壁纸、必应图片搜索、Wallhaven（需代理）；动态素材来自 Mixkit（Free License，可商用免署名）。仅用于个人桌面美化，版权归原作者所有。<br>
+      程序目录 <b>D:\WallpaperStudio</b>　素材目录 <b>E:\Wallpapers</b>（静态图）、<b>E:\Wallpapers\Dynamic</b>（动态素材）、<b>E:\Wallpapers\Scenes</b>（自制特效壁纸）。<br>
+      动态壁纸与特效壁纸都由本机 ffmpeg 解码后直接绘制到桌面层，不占用浏览器、不上传任何数据。
+    </p>
+    <div id="studio" hidden>
+      <div class="st-head">
+        <h1>自制特效壁纸</h1>
+        <p>选背景 → 加特效 → 调参数 → 铺到桌面，右边所有参数都是实时预览的。</p>
+        <div class="st-state" id="stState"></div>
+      </div>
+      <div class="st-grid">
+        <div class="st-stage-wrap">
+          <div class="stage" id="stage">
+            <div id="pvColor"></div>
+            <img id="pvImg" alt="">
+            <video id="pvVideo" muted loop playsinline></video>
+            <canvas id="pvCanvas"></canvas>
+            <div class="stage-tip">点画面试试涟漪 · 移动鼠标看光晕</div>
+          </div>
+          <div class="st-actions">
+            <input type="text" id="stName" value="我的特效壁纸" maxlength="40" placeholder="给这张壁纸起个名字">
+            <button class="btn" id="stApply">保存并铺到桌面</button>
+            <button class="btn ghost" id="stSave">仅保存</button>
+            <button class="chip" id="stNew">新建</button>
+            <input type="file" id="bgFile" accept="image/*,video/*" hidden>
+          </div>
+      <div class="st-mine">
+        <h3>我的特效壁纸 <span class="cnt" id="stCount"></span></h3>
+        <div class="st-cards" id="stMine"></div>
+      </div>
+        </div>
+        <div class="st-panel" id="stPanel"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-body">
+    <div class="modal-img"><img id="mImg" alt="预览"></div>
+    <div class="modal-foot">
+      <span class="title" id="mTitle"></span>
+      <button class="btn ghost" id="mDel" hidden>删除</button>
+      <button class="btn ghost" id="mOpen">打开原图</button>
+      <button class="btn" id="mSet">设为壁纸</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const state = { tab:'daily', items:[], q:'', page:0, size:'wallpaper', loading:false, done:false, current:null, whPage:1, dynItems:[], dynState:{},
+  dynMode:'local', mxItems:[], mxPage:1, mxCat:'cat', mxCats:null, mxLoading:false, mxDone:false, mxBusy:null, share:{} };
+
+/* ---------- 主题 ---------- */
+const savedTheme = localStorage.getItem('ws-theme');
+if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+$('#btnTheme').onclick = () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('ws-theme', next);
+};
+
+/* ---------- 工具 ---------- */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const px = u => '/proxy?u=' + encodeURIComponent(u);
+
+function toast(msg, isErr){
+  const el = document.createElement('div');
+  el.className = 'toast' + (isErr ? ' err' : '');
+  el.textContent = msg;
+  $('#toasts').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(16px)'; el.style.transition = '.25s'; }, 2600);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function progressToast(text){
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `<div class="ptext">${esc(text)}</div><div class="pbar"><i></i></div>`;
+  $('#toasts').appendChild(el);
+  return el;
+}
+function setProgress(el, pct, text){
+  if (!el || !el.isConnected) return;
+  el.querySelector('.ptext').textContent = text;
+  el.querySelector('.pbar i').style.width = Math.max(4, Math.min(100, pct)) + '%';
+}
+
+async function api(url, opt){
+  const r = await fetch(url, opt);
+  const t = await r.text();
+  let j; try { j = JSON.parse(t); } catch { throw new Error(t.slice(0,120) || '响应异常'); }
+  if (!j.ok) throw new Error(j.error || '请求失败');
+  return j;
+}
+
+/* ---------- 渲染 ---------- */
+function skeleton(n){
+  $('#grid').innerHTML = Array.from({length:n}, () => '<div class="skeleton"></div>').join('');
+}
+
+function tileHTML(it, i){
+  const thumb = it.thumb ? px(it.thumb) : (it.url || '');
+  const t = esc(it.title || it.name || '壁纸');
+  return `<div class="tile" data-i="${i}">
+    <img class="ph" loading="lazy" src="${esc(thumb)}" alt="${t}" onerror="this.style.opacity=.15">
+    <span class="badge">${esc(it.source || '本地')}</span>
+    <div class="quick">
+      <button title="设为壁纸" data-act="set" data-i="${i}">✔</button>
+      <button title="打开原图" data-act="open" data-i="${i}">⤢</button>
+      ${it.local ? `<button class="del" title="删除这张壁纸" data-act="del" data-i="${i}">🗑</button>` : ''}
+    </div>
+    <div class="cap"><p>${t}</p></div>
+    ${it.local ? `<div class="delmask">
+      <p>删除这张壁纸？</p>
+      <div class="delrow">
+        <button class="dok" data-act="delok" data-i="${i}">删除</button>
+        <button class="dno" data-act="delno" data-i="${i}">取消</button>
+      </div>
+    </div>` : ''}
+  </div>`;
+}
+
+function render(){
+  const g = $('#grid');
+  if (!state.items.length){
+    g.innerHTML = `<div class="empty"><b>这里还空着</b>换个关键词试试，或点左侧「必应每日精选」</div>`;
+    return;
+  }
+  g.innerHTML = state.items.map(tileHTML).join('');
+  $('#meta').textContent = `共 ${state.items.length} 张${state.done ? '' : ' · 继续下滑加载更多'}`;
+}
+
+function appendItems(items){
+  const g = $('#grid');
+  const start = state.items.length;
+  state.items = state.items.concat(items);
+  const html = items.map((it, k) => tileHTML(it, start + k)).join('');
+  g.insertAdjacentHTML('beforeend', html);
+  $('#meta').textContent = `共 ${state.items.length} 张${state.done ? '' : ' · 继续下滑加载更多'}`;
+}
+
+/* ---------- 数据加载 ---------- */
+async function loadDaily(){
+  const my = (state.seq = (state.seq || 0) + 1);
+  state.loading = true;
+  $('#title').textContent = '必应每日精选';
+  skeleton(8);
+  try{
+    const j = await api('/api/daily?n=8');
+    if (my !== state.seq) return;   // 用户已切到别的页面，别覆盖
+    state.items = j.items; state.done = true;
+    render();
+  }catch(e){ $('#grid').innerHTML = `<div class="empty"><b>加载失败</b>${esc(e.message)}</div>`; }
+  finally{ state.loading = false; }
+}
+
+async function doSearch(more=false){
+  if (!state.q) { toast('先输入关键词', true); return; }
+  if (state.loading) return;
+  state.loading = true;
+  if (!more){ state.page = 0; state.items = []; state.done = false; skeleton(12); }
+  $('#title').textContent = '搜索：' + state.q;
+  try{
+    const j = await api(`/api/search?q=${encodeURIComponent(state.q)}&page=${state.page}&size=${state.size}`);
+    const items = j.items || [];
+    if (more) appendItems(items); else { state.items = items; render(); }
+    state.page++;
+    if (items.length < 10) state.done = true;
+    if (!state.items.length){
+      $('#grid').innerHTML = `<div class="empty"><b>没搜到</b>换个词，或把尺寸筛选改成「全部尺寸」</div>`;
+    }
+  }catch(e){
+    if (!more) $('#grid').innerHTML = `<div class="empty"><b>搜索失败</b>${esc(e.message)}</div>`;
+    toast(e.message, true);
+    state.done = true;
+  }finally{ state.loading = false; }
+}
+
+async function loadLibrary(){
+  const my = (state.seq = (state.seq || 0) + 1);
+  state.loading = true;
+  $('#title').textContent = '我的图库';
+  skeleton(8);
+  try{
+    const j = await api('/api/library');
+    if (my !== state.seq) return;
+    state.items = j.items.map(it => ({
+      id: it.name, name: it.name, title: it.name.replace(/\.[^.]+$/,'').replace(/^\d{8}_\d{6}_/,''),
+      url: it.url, thumb: it.url, source: '本地', path: it.name, local: true, size: it.size
+    }));
+    state.done = true;
+    render();
+    $('#libCount').textContent = `图库 ${state.items.length} 张`;
+    if (!state.items.length){
+      $('#grid').innerHTML = `<div class="empty"><b>图库是空的</b>搜索并「设为壁纸」，下载的图就会存到这里</div>`;
+    }
+  }catch(e){ $('#grid').innerHTML = `<div class="empty"><b>读取失败</b>${esc(e.message)}</div>`; }
+  finally{ state.loading = false; }
+}
+
+/* 删除本地壁纸（移入回收站，可还原） */
+async function delLibraryItem(it, i){
+  try{
+    const j = await api('/api/library/delete', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ name: it.path || it.name })
+    });
+    if (Number.isInteger(i) && state.items[i] === it) state.items.splice(i, 1);
+    else state.items = state.items.filter(x => x.path !== (it.path || it.name));
+    render();
+    $('#libCount').textContent = `图库 ${state.items.length} 张`;
+    if (!state.items.length){
+      $('#grid').innerHTML = `<div class="empty"><b>图库已清空</b>搜索并「设为壁纸」，下载的图就会存到这里</div>`;
+    }
+    toast(j.freed ? `已删除，释放 ${fmtMB(j.freed)}（可在回收站还原）` : '已删除，可在回收站还原');
+  }catch(e){ toast(e.message, true); }
+}
+
+/* ---------- 动态壁纸 ---------- */
+const fmtMB = n => (n >= 1048576 ? (n/1048576).toFixed(1) : (n/1024).toFixed(0)) + (n >= 1048576 ? ' MB' : ' KB');
+function syncDynBar(){
+  const s = state.dynState || {};
+  const on = !!s.running;
+  $('#dynbar').classList.toggle('show', on);
+  if (on) $('#dynbarName').textContent = s.name || '';
+  const n = (state.dynItems || []).length;
+  $('#dynBadge').textContent = on ? '播放中' : (n ? n + ' 个' : '');
+  if (n) $('#dynCount').textContent = `已存 ${n} 个`;
+}
+
+function renderDyn(){
+  const g = $('#grid');
+  const items = state.dynItems || [];
+  if (!items.length){
+    g.innerHTML = `<div class="empty"><b>还没有动态壁纸</b>点左侧「＋ 导入动态壁纸」，选一个 mp4 / webm / GIF 文件<br>建议用 1080P 以内的素材，越大越吃 CPU</div>`;
+    $('#meta').textContent = '';
+    return;
+  }
+  const cur = state.dynState && state.dynState.running ? state.dynState.name : '';
+  g.innerHTML = items.map(it => {
+    const base = it.name.replace(/\.[^.]+$/, '');
+    const ext = it.name.split('.').pop().toUpperCase();
+    return `<div class="dtile ${it.name === cur ? 'playing' : ''}" data-name="${esc(it.name)}">
+      <img class="ph" loading="lazy" src="/api/dyn/thumb?name=${encodeURIComponent(it.name)}" alt="${esc(base)}" onerror="this.style.opacity=.12">
+      ${it.name === cur ? '<span class="live"><i></i>播放中</span>' : ''}
+      <div class="dacts">
+        <button data-act="play" data-name="${esc(it.name)}">${it.name === cur ? '重新播放' : '设为动态壁纸'}</button>
+        <button class="del" data-act="del" data-name="${esc(it.name)}">删除</button>
+      </div>
+      <div class="dinfo"><b>${esc(base)}</b><span>${fmtMB(it.size)} · ${esc(ext)}</span></div>
+    </div>`;
+  }).join('');
+  $('#meta').textContent = `共 ${items.length} 个 · 鼠标移上去点「设为动态壁纸」`;
+}
+
+async function loadDyn(){
+  state.loading = true;
+  $('#title').textContent = '动态壁纸';
+  $('#grid').innerHTML = Array.from({length:6}, () => '<div class="skeleton"></div>').join('');
+  try{
+    const j = await api('/api/dyn/list');
+    state.dynItems = j.items || [];
+    state.dynState = j.state || {};
+    renderDyn();
+    syncDynBar();
+    if (!j.ffmpeg) toast('缺少 ffmpeg，动态壁纸无法播放', true);
+  }catch(e){
+    $('#grid').innerHTML = `<div class="empty"><b>读取失败</b>${esc(e.message)}</div>`;
+  }finally{ state.loading = false; }
+}
+
+async function startDyn(name){
+  const t = progressToast('正在启动动态壁纸…');
+  try{
+    await api('/api/dyn/start', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({name})});
+    if (t) t.remove();
+    state.dynState = { running: true, name };
+    if (state.tab === 'dyn') renderDyn();
+    syncDynBar();
+    toast('🎬 已铺到桌面，图标照常可用');
+  }catch(e){
+    if (t) t.remove();
+    toast(e.message, true);
+  }
+}
+
+async function stopDyn(){
+  try{
+    await api('/api/dyn/stop', {method:'POST'});
+    state.dynState = { running: false };
+    if (state.tab === 'dyn') renderDyn();
+    syncDynBar();
+    toast('已停止，恢复静态壁纸');
+  }catch(e){ toast(e.message, true); }
+}
+
+/* ---------- 在线动态壁纸（Mixkit） ---------- */
+const MXC_DEFAULT = [['cat','猫咪'],['nature','自然'],['animals','动物'],['sea','海洋'],
+  ['city','城市'],['night','夜景'],['abstract','抽象'],['space','太空'],['forest','森林'],
+  ['aerial','航拍'],['water','水'],['sky','天空'],['fire','火焰'],['snow','雪'],['rain','雨'],
+  ['technology','科技'],['transport','交通'],['food','美食'],['sport','运动'],['people','人物']];
+
+function mxName(slug){
+  const list = state.mxCats ? state.mxCats.map(c => [c.slug, c.name]) : MXC_DEFAULT;
+  const hit = list.find(x => x[0] === slug);
+  return hit ? hit[1] : slug;
+}
+
+function renderMxChips(){
+  const list = state.mxCats ? state.mxCats.map(c => [c.slug, c.name]) : MXC_DEFAULT;
+  $('#mxChips').innerHTML = list.map(([s, n]) =>
+    `<button class="chip ${s === state.mxCat ? 'on' : ''}" data-cat="${s}">${esc(n)}</button>`).join('');
+}
+
+function renderMx(){
+  const g = $('#grid');
+  const items = state.mxItems || [];
+  if (!items.length){
+    g.innerHTML = `<div class="empty"><b>没有取到素材</b>换个分类，或检查网络 / 代理</div>`;
+    $('#meta').textContent = '';
+    return;
+  }
+  g.innerHTML = items.map((it, i) => {
+    const busy = state.mxBusy === it.id;
+    return `<div class="dtile" data-mxi="${i}">
+      <img class="ph" loading="lazy" src="${esc(px(it.thumb))}" alt="${esc(it.title)}" onerror="this.style.opacity=.12">
+      <span class="mtag">1080P</span>
+      <div class="ddesc">${esc(it.desc || it.title)}</div>
+      <div class="dacts">
+        <button data-act="mxplay" data-i="${i}">${busy ? '下载中…' : '下载并播放'}</button>
+        <button data-act="mxget" data-i="${i}">仅下载</button>
+      </div>
+      <div class="dinfo"><b>${esc(it.title)}</b><span>Mixkit · 免费可商用</span></div>
+    </div>`;
+  }).join('');
+  $('#meta').textContent = `共 ${items.length} 个 · 第 ${state.mxPage} 页${state.mxDone ? '' : ' · 下滑加载更多'}`;
+}
+
+async function loadMx(more=false){
+  if (state.mxLoading) return;
+  state.mxLoading = true;
+  const p = more ? state.mxPage + 1 : 1;
+  if (!more){ state.mxItems = []; state.mxDone = false; skeleton(8); }
+  $('#title').textContent = '在线动态壁纸 · ' + mxName(state.mxCat);
+  try{
+    const j = await api(`/api/mx?cat=${encodeURIComponent(state.mxCat)}&page=${p}`);
+    if (j.cats && j.cats.length && !state.mxCats){ state.mxCats = j.cats; renderMxChips(); }
+    const items = j.items || [];
+    if (more) state.mxItems = state.mxItems.concat(items); else state.mxItems = items;
+    state.mxPage = p;
+    if (!items.length || j.hasMore === false) state.mxDone = true;
+    renderMx();
+  }catch(e){
+    if (!more) $('#grid').innerHTML = `<div class="empty"><b>Mixkit 连不上</b>${esc(e.message)}<br><br>Mixkit 多数网络可直连；若失败，开代理后重试。</div>`;
+    toast(e.message, true);
+    state.mxDone = true;
+  }finally{ state.mxLoading = false; }
+}
+
+async function downloadMx(it, autoplay, btn){
+  if (!it || state.mxBusy) return;
+  state.mxBusy = it.id;
+  if (btn){ btn.disabled = true; btn.textContent = '下载中…'; }
+  const t = progressToast('正在连接 Mixkit…');
+  try{
+    const j = await api('/api/mx/dl', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ full: it.full, alt: it.alt, title: it.title, autoplay })});
+    let st = null;
+    for (let i = 0; i < 1800; i++){
+      await new Promise(r => setTimeout(r, 600));
+      st = await api('/api/job?id=' + j.job);
+      if (st.state === 'done' || st.state === 'error') break;
+      setProgress(t, st.pct || 3, st.msg || '下载中…');
+    }
+    if (!st || st.state === 'error') throw new Error(st ? st.msg : '下载超时');
+    if (t) t.remove();
+    toast(autoplay ? '🎬 已铺到桌面' : '已存入「我的素材」');
+    state.dynMode = 'local';
+    setDynMode('local');
+  }catch(e){
+    if (t) t.remove();
+    toast(e.message, true);
+  }finally{
+    state.mxBusy = null;
+    if (btn){ btn.disabled = false; btn.textContent = '下载并播放'; }
+  }
+}
+
+function setDynMode(mode){
+  state.dynMode = mode;
+  document.querySelectorAll('#dynSeg button').forEach(b =>
+    b.classList.toggle('on', b.dataset.mode === mode));
+  $('#mxbar').classList.toggle('show', mode === 'online');
+  if (mode === 'online'){ renderMxChips(); loadMx(false); }
+  else loadDyn();
+}
+
+async function loadWh(more=false){  if (state.loading) return;
+  state.loading = true;
+  const p = more ? state.whPage + 1 : 1;
+  const cat = $('#whCat').value, res = $('#whRes').value, sort = $('#whSort').value;
+  if (!more){ state.items = []; state.done = false; state.whPage = 1; skeleton(12); }
+  $('#title').textContent = state.q ? 'Wallhaven：' + state.q : 'Wallhaven 高清壁纸';
+  try{
+    const j = await api(`/api/wh?q=${encodeURIComponent(state.q)}&page=${p}&sorting=${sort}&atleast=${encodeURIComponent(res)}&categories=${cat}`);
+    const items = j.items || [];
+    if (more) appendItems(items); else { state.items = items; render(); }
+    state.whPage = p;
+    const m = j.meta || {};
+    state.done = p >= (m.last || 1);
+    $('#meta').textContent = `共 ${m.total ?? items.length} 张 · 第 ${m.page ?? p}/${m.last ?? 1} 页${state.done ? '' : ' · 下滑加载更多'}`;
+    if (!state.items.length){
+      $('#grid').innerHTML = `<div class="empty"><b>这个筛选下没有结果</b>把分辨率改成「不限」，或换个分类试试</div>`;
+    }
+  }catch(e){
+    if (!more){
+      $('#grid').innerHTML = `<div class="empty"><b>Wallhaven 连不上</b>${esc(e.message)}<br><br>请确认代理（VPN/青云梯）已开启——Wallhaven 必须走代理。</div>`;
+    }
+    toast(e.message, true);
+    state.done = true;
+  }finally{ state.loading = false; }
+}
+
+function switchTab(tab){
+  state.tab = tab;
+  document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  const inStudio = tab === 'studio';
+  document.querySelector('main').classList.toggle('studio-mode', inStudio);
+  document.body.classList.toggle('studio-mode', inStudio);
+  $('#studio').hidden = !inStudio;
+  if (window.Studio){ inStudio ? Studio.enter() : Studio.leave(); }
+  $('#whbar').classList.toggle('show', tab === 'wh');
+  $('#dynSeg').style.display = tab === 'dyn' ? '' : 'none';
+  if (tab !== 'dyn') $('#mxbar').classList.remove('show');
+  $('#size').style.display = tab === 'wh' ? 'none' : '';
+  if (inStudio) return;
+  if (tab === 'daily') loadDaily();
+  else if (tab === 'wh') loadWh(false);
+  else if (tab === 'dyn') setDynMode(state.dynMode);
+  else if (tab === 'search') { if (state.q) doSearch(false); else { state.items = []; state.done = true; $('#grid').innerHTML = `<div class="empty"><b>输入关键词开始搜索</b>例如「星空 4K」</div>`; $('#title').textContent = '必应图片搜索'; } }
+  else if (tab === 'library') loadLibrary();
+}
+
+/* ---------- 设为壁纸 ---------- */
+async function setWallpaper(it, btn){
+  const label = btn ? btn.textContent : '';
+  if (btn){ btn.disabled = true; btn.textContent = '…'; }
+  const t = progressToast('正在准备…');
+  const fast = $('#whFast') && $('#whFast').checked && it.preview;
+  const src = fast ? it.preview : (it.full || it.url);
+  try{
+    const j = await api('/api/set', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ url: src, title: it.title || it.name })
+    });
+    let st = null;
+    for (let i = 0; i < 900; i++){
+      await new Promise(r => setTimeout(r, 700));
+      st = await api('/api/job?id=' + j.job);
+      if (st.state === 'done' || st.state === 'error') break;
+      setProgress(t, st.pct || 3, st.msg || '下载中…');
+    }
+    if (!st || st.state === 'error') throw new Error(st ? st.msg : '任务超时，请重试');
+    t.remove();
+    toast(st.set === false ? '已下载，但系统拒绝了设置请求' : '✅ 已设为桌面壁纸，并存入图库');
+    refreshCount();
+    if (state.tab === 'library') loadLibrary();
+  }catch(e){
+    if (t) t.remove();
+    toast(e.message, true);
+  }finally{ if (btn){ btn.disabled = false; btn.textContent = label; } }
+}
+
+async function refreshCount(){
+  try{ const j = await api('/api/status'); $('#libCount').textContent = `图库 ${j.count} 张`; }catch{}
+}
+
+/* ---------- 预览弹窗 ---------- */
+function openPreview(it){
+  state.current = it;
+  $('#mTitle').textContent = it.title || it.name || '';
+  $('#mImg').src = it.full ? px(it.full) : it.url;
+  $('#mDel').hidden = !it.local;
+  delete $('#mDel').dataset.armed;
+  $('#mDel').textContent = '删除';
+  $('#modal').classList.add('open');
+}
+$('#modal').onclick = e => { if (e.target.id === 'modal') $('#modal').classList.remove('open'); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#modal').classList.remove('open'); });
+$('#mSet').onclick = () => { if (state.current) setWallpaper(state.current, $('#mSet')); };
+$('#mOpen').onclick = () => { const u = state.current?.full || state.current?.url; if (u) window.open(u, '_blank'); };
+$('#mDel').onclick = () => {
+  const it = state.current;
+  if (!it || !it.local) return;
+  const b = $('#mDel');
+  if (!b.dataset.armed){
+    b.dataset.armed = '1';
+    b.textContent = '确认删除';
+    setTimeout(() => { delete b.dataset.armed; b.textContent = '删除'; }, 4000);
+    return;
+  }
+  delete b.dataset.armed;
+  b.textContent = '删除';
+  $('#modal').classList.remove('open');
+  delLibraryItem(it, state.items.indexOf(it));
+};
+
+/* ---------- 事件 ---------- */
+function armDelete(btn){
+  const tile = btn.closest('.tile');
+  document.querySelectorAll('.tile.arm').forEach(t => { if (t !== tile) t.classList.remove('arm'); });
+  tile.classList.add('arm');
+}
+$('#grid').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-act]');
+  const i = Number((btn || e.target.closest('.tile'))?.dataset.i);
+  const it = state.items[i];
+  if (!it) return;
+  if (btn){
+    e.stopPropagation();
+    if (btn.dataset.act === 'set') setWallpaper(it, btn);
+    else if (btn.dataset.act === 'del') armDelete(btn);
+    else if (btn.dataset.act === 'delok') delLibraryItem(it, i);
+    else if (btn.dataset.act === 'delno') btn.closest('.tile').classList.remove('arm');
+    else window.open(it.full || it.url, '_blank');
+    return;
+  }
+  openPreview(it);
+});
+
+document.querySelectorAll('.nav button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+
+const tags = ['猫咪','星空','极简','风景 4K','赛博朋克','二次元','黑白','城市夜景','动物','抽象','渐变','水墨','雪山'];
+$('#chips').innerHTML = tags.map(t => `<button class="chip">${t}</button>`).join('');
+$('#chips').onclick = e => {
+  const c = e.target.closest('.chip'); if (!c) return;
+  $('#q').value = c.textContent;
+  state.q = c.textContent;
+  switchTab('search');
+};
+
+$('#btnSearch').onclick = () => {
+  state.q = $('#q').value.trim();
+  state.size = $('#size').value;
+  const tab = state.tab === 'wh' ? 'wh' : 'search';
+  state.tab = tab;
+  document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  $('#whbar').classList.toggle('show', tab === 'wh');
+  $('#size').style.display = tab === 'wh' ? 'none' : '';
+  if (tab === 'wh') loadWh(false); else doSearch(false);
+};
+$('#q').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnSearch').click(); });
+
+['#whCat', '#whRes', '#whSort'].forEach(sel => { $(sel).onchange = () => loadWh(false); });
+
+/* 无限滚动（必应搜索 / Wallhaven） */
+new IntersectionObserver(entries => {
+  if (!entries[0].isIntersecting || state.loading || state.done || !state.items.length) return;
+  if (state.tab === 'search') doSearch(true);
+  else if (state.tab === 'wh') loadWh(true);
+}, { rootMargin: '500px' }).observe($('#sentinel'));
+
+/* 在线素材的下滑加载（独立状态，不与图片列表混用） */
+new IntersectionObserver(entries => {
+  if (!entries[0].isIntersecting) return;
+  if (state.tab === 'dyn' && state.dynMode === 'online' && !state.mxLoading && !state.mxDone && state.mxItems.length){
+    loadMx(true);
+  }
+}, { rootMargin: '600px' }).observe($('#sentinel'));
+
+/* 轮播控制 */
+async function syncRotate(){
+  try{
+    const j = await api('/api/status');
+    const r = j.rotate || {};
+    $('#rotOn').checked = !!r.enabled;
+    if (r.minutes) $('#rotMin').value = String(r.minutes);
+    $('#rotHint').textContent = r.enabled ? `已开启：每 ${r.minutes} 分钟从图库随机换一张。` : '从「我的图库」里随机挑一张轮换。';
+    $('#libCount').textContent = `图库 ${j.count} 张`;
+    $('#whTip').textContent = j.proxy ? `代理 ${j.proxy}` : '直连（未检测到代理）';
+    if (j.dyn){
+      state.dynState = j.dyn;
+      $('#dynbar').classList.toggle('show', !!j.dyn.running);
+      if (j.dyn.running) $('#dynbarName').textContent = j.dyn.name || '';
+    }
+    if (typeof j.dynCount === 'number'){
+      $('#dynCount').textContent = `已存 ${j.dynCount} 个`;
+      if (!(state.dynItems || []).length){
+        $('#dynBadge').textContent = (state.dynState && state.dynState.running)
+          ? '播放中' : (j.dynCount ? j.dynCount + ' 个' : '');
+      }
+    }
+  }catch{}
+}
+$('#rotOn').onchange = async e => {
+  try{ await api('/api/rotate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ enabled: e.target.checked, minutes: Number($('#rotMin').value) })}); syncRotate(); toast(e.target.checked ? '已开启定时轮播' : '已关闭定时轮播'); }
+  catch(err){ toast(err.message, true); }
+};
+$('#rotMin').onchange = async e => {
+  if (!$('#rotOn').checked) return;
+  try{ await api('/api/rotate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ enabled: true, minutes: Number(e.target.value) })}); syncRotate(); }
+  catch(err){ toast(err.message, true); }
+};
+
+/* 本地文件 */
+$('#btnPick').onclick = () => $('#file').click();
+$('#file').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  toast('正在读取本地文件…');
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try{
+      const j = await api('/api/upload', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name: f.name, data: reader.result })});
+      toast(j.video ? '🎬 已存入动态壁纸，去「动态壁纸」点启用' : (j.set ? '✅ 已设为桌面壁纸' : '已保存，但设置被拒绝'));
+      refreshCount();
+      if (j.video) syncRotate();
+    }catch(err){ toast(err.message, true); }
+  };
+  reader.readAsDataURL(f);
+  e.target.value = '';
+};
+
+$('#btnFolder').onclick = () => api('/api/openfolder', {method:'POST'}).catch(e => toast(e.message, true));
+$('#btnBack').onclick = async () => {
+  try{ const j = await api('/api/rollback', {method:'POST'}); toast('↩️ 已换回：' + (j.title || j.name)); }
+  catch(e){ toast(e.message, true); }
+};
+
+/* ---------- 动态壁纸交互 ---------- */
+$('#grid').addEventListener('click', e => {
+  const b = e.target.closest('.dacts button');
+  if (!b || (b.dataset.act || '').startsWith('mx')) return;
+  e.stopPropagation();
+  const name = b.dataset.name;
+  if (b.dataset.act === 'play') startDyn(name);
+  else if (b.dataset.act === 'del'){
+    if (!confirm(`删除「${name}」？文件会从 E 盘一起删掉。`)) return;
+    api('/api/dyn/delete', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({name})})
+      .then(() => { toast('已删除'); loadDyn(); })
+      .catch(err => toast(err.message, true));
+  }
+});
+
+$('#btnStopDyn').onclick = stopDyn;
+
+/* ---------- 在线素材交互 ---------- */
+$('#dynSeg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-mode]');
+  if (b && b.dataset.mode !== state.dynMode) setDynMode(b.dataset.mode);
+});
+$('#mxChips').addEventListener('click', e => {
+  const c = e.target.closest('.chip[data-cat]');
+  if (!c || c.dataset.cat === state.mxCat) return;
+  state.mxCat = c.dataset.cat;
+  renderMxChips();
+  loadMx(false);
+});
+$('#grid').addEventListener('click', e => {
+  const b = e.target.closest('.dacts button[data-act^="mx"]');
+  if (!b) return;
+  e.stopPropagation();
+  const it = state.mxItems[Number(b.dataset.i)];
+  if (it) downloadMx(it, b.dataset.act === 'mxplay', b);
+});
+$('#btnDynPick').onclick = () => $('#dynFile').click();
+$('#btnDynFolder').onclick = () => api('/api/dyn/opendir', {method:'POST'}).catch(e => toast(e.message, true));
+
+$('#dynFile').onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  if (f.size > 300 * 1024 * 1024){ toast('文件超过 300MB，建议先压缩到 1080P', true); return; }
+  const t = progressToast('正在导入 ' + f.name);
+  const reader = new FileReader();
+  reader.onprogress = ev => {
+    if (ev.lengthComputable) setProgress(t, ev.loaded / ev.total * 90,
+      `读取中 ${(ev.loaded/1048576).toFixed(0)}MB / ${(ev.total/1048576).toFixed(0)}MB`);
+  };
+  reader.onload = async () => {
+    setProgress(t, 95, '正在写入 E 盘…');
+    try{
+      const j = await api('/api/dyn/import', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name: f.name, data: reader.result})});
+      if (t) t.remove();
+      toast('✅ 已导入：' + j.name);
+      if (state.tab !== 'dyn') switchTab('dyn'); else loadDyn();
+    }catch(err){ if (t) t.remove(); toast(err.message, true); }
+  };
+  reader.onerror = () => { if (t) t.remove(); toast('读取文件失败', true); };
+  reader.readAsDataURL(f);
+  e.target.value = '';
+};
+
+/* ---------- 分享 / 局域网 ---------- */
+async function loadShare(){
+  try{
+    const j = await api('/api/share');
+    state.share = j;
+    $('#lanOn').checked = !!j.lan;
+    const box = $('#lanUrls');
+    if (!j.urls || !j.urls.length){
+      box.innerHTML = '<p class="hint">没检测到局域网地址（先连上 WiFi / 网线）。</p>';
+      return;
+    }
+    box.innerHTML = j.urls.map(u =>
+      `<a class="lanurl" href="${esc(u)}" target="_blank" rel="noreferrer">${esc(u)}</a>`).join('')
+      + `<p class="hint">${j.lan ? '手机连同一个 WiFi，浏览器输入上面地址即可。' : '局域网访问已关闭，打开开关并重启程序后生效。'}</p>`;
+  }catch(e){
+    $('#lanUrls').innerHTML = `<p class="hint">读取失败：${esc(e.message)}</p>`;
+  }
+}
+$('#lanOn').onchange = async e => {
+  try{
+    await api('/api/share', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({lan: e.target.checked})});
+    toast('已保存，重启程序后生效');
+    loadShare();
+  }catch(err){ toast(err.message, true); }
+};
+$('#btnCopyLan').onclick = () => {
+  const u = (state.share.urls || [])[0];
+  if (!u) return toast('没有可用地址', true);
+  const done = () => toast('已复制：' + u);
+  if (navigator.clipboard) navigator.clipboard.writeText(u).then(done).catch(() => toast(u));
+  else toast(u);
+};
+
+/* 启动 */
+syncRotate();
+loadShare();
+loadDaily();
+(function(){
+  const t = (location.hash || '').replace('#','');
+  if (['dyn','daily','wh','search','library','studio'].includes(t)) switchTab(t);
+})();
+</script>
+<script src="/ui/studio.js"></script>
+</body>
+</html>

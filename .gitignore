@@ -1,0 +1,24 @@
+# 打包产物
+_build/
+build/
+dist/
+
+# 第三方二进制（ffmpeg 约 100MB，不入库；首次运行会自动查找系统 ffmpeg）
+vendor/
+
+# 运行时数据、日志、本地配置
+*.log
+config.json
+dyn_state.json
+_uninstall_backup/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 系统
+Thumbs.db
+desktop.ini
+.DS_Store
