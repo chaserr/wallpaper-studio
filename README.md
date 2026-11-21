@@ -1,5 +1,7 @@
 # 壁纸工坊 · Wallpaper Studio
 
+> 不想装 Python？到 [Releases](https://github.com/chaserr/wallpaper-studio/releases/latest) 下载 Windows 免安装版，解压双击即用。
+
 一个跑在 Windows 本机的桌面壁纸工具：找图、存图、换壁纸，外加一个能自己做粒子特效壁纸的工作室。
 界面是 pywebview 原生窗口，后端只有 Python 标准库，数据全部留在本地。
 
