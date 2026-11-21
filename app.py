@@ -23,6 +23,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -1026,18 +1027,25 @@ def scene_get(sid: str) -> dict:
 
 
 def scene_save(body: dict) -> dict:
+    from fx import norm_scene as _norm
+
     name = (body.get("name") or "我的特效壁纸").strip()[:40] or "我的特效壁纸"
     cfg = body.get("cfg") or {}
     if not isinstance(cfg, dict):
         raise ValueError("配置格式错误")
-    cfg = dict(cfg)
+    # 统一规范化：把 null / NaN / 字符串数字都变成干净的数值，
+    # 否则写进 JSON 后引擎读出来会 float(None) 崩掉
+    cfg = _norm(cfg)
     cfg["name"] = name
     sid = _scene_id(body.get("id") or "")
     if not sid:
         sid = "sc_" + hashlib.md5(
             f"{time.time()}{name}{random.random()}".encode()).hexdigest()[:10]
     fp = scene_path(sid)
-    fp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    text = json.dumps(cfg, ensure_ascii=False, indent=2, allow_nan=False)
+    tmp = fp.with_suffix(".json.tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, fp)
 
     thumb = str(body.get("thumb") or "")
     if thumb:
@@ -1431,8 +1439,19 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     r = scene_save(body)
                 except Exception as e:
-                    return self._err(str(e), 400)
+                    log("保存场景失败：" + traceback.format_exc())
+                    msg = str(e).strip() or type(e).__name__
+                    if isinstance(e, PermissionError):
+                        msg = "文件被占用或没有写入权限（" + msg + "）"
+                    elif isinstance(e, OSError):
+                        msg = "写入磁盘失败（" + msg + "）"
+                    return self._err("保存失败：" + msg, 400)
                 return self._json({"ok": True, **r})
+            if path == "/api/log":
+                msg = str(body.get("msg") or "")[:2000]
+                if msg:
+                    log("前端上报：" + msg)
+                return self._json({"ok": True})
             if path == "/api/scene/delete":
                 sid = _scene_id(body.get("id") or "")
                 if not sid:

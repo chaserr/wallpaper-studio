@@ -856,20 +856,53 @@
   }
 
   async function post(url, body) {
-    const r = await fetch(url, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body || {})
-    });
-    return r.json();
+    let r;
+    try {
+      r = await fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+      });
+    } catch (e) {
+      throw new Error('连不上本地服务，程序可能已退出（' + (e.message || e) + '）');
+    }
+    const txt = await r.text();
+    try { return JSON.parse(txt); }
+    catch (e) {
+      throw new Error('服务返回异常（HTTP ' + r.status + '）：' + String(txt).slice(0, 120));
+    }
   }
+  const msgOf = (e) => (e && e.message ? e.message : String(e || '未知错误'));
+
+  /* 出错时把细节写进本地日志，方便排查（不影响界面） */
+  function reportError(where, e) {
+    try {
+      fetch('/api/log', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          msg: '[' + where + '] ' + msgOf(e) + ' | bg=' + (ST.bg && ST.bg.type) +
+               ' | src=' + (ST.bg && ST.bg.name) + ' | fx=' + fxList().length
+        })
+      }).catch(() => {});
+    } catch (_) {}
+  }
+
   async function getJSON(url) {
     const r = await fetch(url);
     return r.json();
   }
 
+  /* 安全取数：null / undefined / '' / NaN 一律回到默认值，
+     否则 JSON 里会写进 null，引擎读出来 float(None) 直接崩 */
+  const num = (v, d) => {
+    if (v === null || v === undefined || v === '') return d;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : d;
+  };
+
   /* ---------------------------------------------------------- 缩略图 */
   function makeThumb() {
-    const W = 640, H = 360;
+    try {
+      const W = 640, H = 360;
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
     const g = c.getContext('2d');
@@ -891,24 +924,34 @@
         }
       } catch (e) { g.fillStyle = '#111a2e'; g.fillRect(0, 0, W, H); }
     }
-    try { g.drawImage(PV.cvs, 0, 0, W, H); } catch (e) {}
-    return c.toDataURL('image/jpeg', 0.85);
+      try { g.drawImage(PV.cvs, 0, 0, W, H); } catch (e) {}
+      return c.toDataURL('image/jpeg', 0.85);
+    } catch (e) {
+      // 缩略图只是锦上添花，画不出来也不能拖垮保存
+      console.warn('缩略图生成失败', e);
+      return '';
+    }
   }
 
   /* ---------------------------------------------------------- 保存 / 应用 */
   function buildCfg() {
     const fx = [];
     fxList().forEach(({ K, s }) => {
-      const o = { kind: K.k, count: +s.count, size: +s.size, speed: +s.speed,
-                  alpha: +s.alpha, color: s.color };
-      if (K.angle) o.angle = +s.angle;
+      const d = K.def || {};
+      const o = { kind: K.k, count: num(s.count, d.count ?? 60),
+                  size: num(s.size, d.size ?? 1), speed: num(s.speed, d.speed ?? 1),
+                  alpha: num(s.alpha, d.alpha ?? 0.9),
+                  color: s.color || d.color || '#ffffff' };
+      if (K.angle) o.angle = num(s.angle, d.angle ?? 12);
       fx.push(o);
     });
     return {
       name: ST.name,
       bg: { type: ST.bg.type, src: ST.bg.src, name: ST.bg.name,
-            color: ST.bg.color, color2: ST.bg.color2, motion_speed: +ST.bg.motion_speed,
-            strength: +ST.bg.strength, blur: +ST.bg.blur, focus: +ST.bg.focus },
+            color: ST.bg.color, color2: ST.bg.color2,
+            motion_speed: num(ST.bg.motion_speed, 1),
+            strength: num(ST.bg.strength, 1), blur: num(ST.bg.blur, 1),
+            focus: num(ST.bg.focus, 1) },
       fx,
       mouse: { glow: { ...ST.glow }, ripple: { ...ST.ripple } },
       clock: { ...ST.clock }, text: { ...ST.text }
@@ -916,26 +959,39 @@
   }
 
   async function save(apply) {
-    ST.name = (q('#stName').value || '我的特效壁纸').trim().slice(0, 40) || '我的特效壁纸';
+    const nameEl = q('#stName');
+    ST.name = ((nameEl && nameEl.value) || '我的特效壁纸').trim().slice(0, 40) || '我的特效壁纸';
     const btn = apply ? q('#stApply') : q('#stSave');
+    if (!btn) return;
     const old = btn.textContent;
     btn.disabled = true; btn.textContent = '保存中…';
+    let sid = '';
     try {
       const cfg = buildCfg();
       const r = await post('/api/scene/save', { id: ST.id, name: ST.name, cfg, thumb: makeThumb() });
       if (!r.ok) throw new Error(r.error || '保存失败');
+      sid = r.id;
       ST.id = r.id;
-      if (apply) {
-        btn.textContent = '正在铺到桌面…';
-        const a = await post('/api/scene/apply', { id: r.id });
-        if (!a.ok) throw new Error(a.error || '启动失败');
-        if (window.toast) toast('✅ 已铺到桌面，点桌面空白处试试涟漪');
-      } else if (window.toast) {
-        toast('已保存到「我的特效壁纸」');
-      }
       await refresh();
     } catch (e) {
-      if (window.toast) toast(e.message, true);
+      reportError('保存', e);
+      if (window.toast) toast('保存失败：' + msgOf(e), true);
+      btn.disabled = false; btn.textContent = old;
+      return;
+    }
+    btn.disabled = false; btn.textContent = old;
+    if (!apply) {
+      if (window.toast) toast('已保存到「我的特效壁纸」');
+      return;
+    }
+    btn.disabled = true; btn.textContent = '正在铺到桌面…';
+    try {
+      const a = await post('/api/scene/apply', { id: sid });
+      if (!a.ok) throw new Error(a.error || '启动失败');
+      if (window.toast) toast('✅ 已铺到桌面，点桌面空白处试试涟漪');
+    } catch (e) {
+      reportError('铺到桌面', e);
+      if (window.toast) toast('已保存，但铺到桌面失败：' + msgOf(e), true);
     } finally {
       btn.disabled = false; btn.textContent = old;
     }

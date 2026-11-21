@@ -383,15 +383,46 @@ DEFAULT_SCENE = {
 }
 
 
+def num(v, default: float, lo: float | None = None, hi: float | None = None) -> float:
+    """把任何来源的值（None / "" / NaN / 字符串 / 布尔）安全转成有限浮点。
+
+    场景 JSON 里出现 null 时，float(None) 会直接抛 TypeError 让引擎起来就挂，
+    所以所有从配置读数字的地方都必须走这里。
+    """
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        f = float(default)
+    if f != f or f in (float("inf"), float("-inf")):
+        f = float(default)
+    if lo is not None and f < lo:
+        f = lo
+    if hi is not None and f > hi:
+        f = hi
+    return f
+
+
+def inum(v, default: int, lo: int | None = None, hi: int | None = None) -> int:
+    return int(round(num(v, default, lo, hi)))
+
+
 def norm_scene(cfg: dict | None) -> dict:
-    """补齐缺省值，兼容旧版本配置"""
+    """补齐缺省值，兼容旧版本配置（含 null 字段的老场景）"""
     cfg = dict(cfg or {})
     out = json_deep_copy(DEFAULT_SCENE)
     if isinstance(cfg.get("name"), str) and cfg["name"].strip():
         out["name"] = cfg["name"].strip()[:40]
     bg = cfg.get("bg") or {}
     if isinstance(bg, dict):
-        out["bg"].update({k: bg[k] for k in out["bg"] if k in bg})
+        # 只合并有值的字段：老场景里可能是 null，留着会一路传到 float() 里炸掉
+        out["bg"].update({k: bg[k] for k in out["bg"]
+                          if k in bg and bg[k] is not None})
+    out["bg"]["type"] = str(out["bg"].get("type") or "color")
+    out["bg"]["src"] = str(out["bg"].get("src") or "")
+    out["bg"]["motion_speed"] = num(out["bg"].get("motion_speed"), 1.0, 0.1, 4.0)
+    out["bg"]["strength"] = num(out["bg"].get("strength"), 1.0, 0.0, 3.0)
+    out["bg"]["blur"] = num(out["bg"].get("blur"), 1.0, 0.0, 3.0)
+    out["bg"]["focus"] = num(out["bg"].get("focus"), 1.0, 0.3, 1.8)
     fx = []
     for item in cfg.get("fx") or []:
         if not isinstance(item, dict):
@@ -400,11 +431,14 @@ def norm_scene(cfg: dict | None) -> dict:
         if kind not in KINDS:
             continue
         merged = {"kind": kind, **KINDS[kind]["def"]}
-        merged.update({k: item[k] for k in merged if k in item})
-        merged["count"] = max(0, min(400, int(merged["count"])))
-        merged["alpha"] = max(0.05, min(1.0, float(merged["alpha"])))
-        merged["size"] = max(0.3, min(3.0, float(merged["size"])))
-        merged["speed"] = max(0.1, min(4.0, float(merged["speed"])))
+        merged.update({k: item[k] for k in merged
+                       if k in item and item[k] is not None})
+        merged["count"] = inum(merged["count"], 0, 0, 400)
+        merged["alpha"] = num(merged["alpha"], 0.9, 0.05, 1.0)
+        merged["size"] = num(merged["size"], 1.0, 0.3, 3.0)
+        merged["speed"] = num(merged["speed"], 1.0, 0.1, 4.0)
+        if "angle" in merged:
+            merged["angle"] = num(merged["angle"], 12.0, -80.0, 80.0)
         fx.append(merged)
     out["fx"] = fx
     for key in ("mouse", "clock", "text"):
@@ -839,7 +873,7 @@ class Effect:
     # ---- 更新
     def step(self, dt: float, t: float) -> None:
         k = self.kind
-        speed = float(self.cfg.get("speed", 1.0))
+        speed = num(self.cfg.get("speed"), 1.0, 0.1, 4.0)
         sw, sh = self.sw, self.sh
         for p in self.parts:
             if k == "rain":
@@ -910,8 +944,8 @@ class Effect:
     # ---- 绘制
     def draw(self, hdc, blit) -> None:
         k = self.kind
-        size_f = float(self.cfg.get("size", 1.0)) * self.k
-        alpha = float(self.cfg.get("alpha", 0.9))
+        size_f = num(self.cfg.get("size"), 1.0, 0.3, 3.0) * self.k
+        alpha = num(self.cfg.get("alpha"), 0.9, 0.05, 1.0)
         for p in self.parts:
             if k == "rain":
                 spr = self.sp.streak
@@ -1134,9 +1168,9 @@ class Renderer:
                 self.log(f"bg=video {path}")
             elif btype == "para" and path and os.path.isfile(path) and self.ffmpeg:
                 pbg = ParallaxBg(self.hdc, self.ffmpeg, path, self.sw, self.sh,
-                                 float(bg.get("strength", 1.0)),
-                                 float(bg.get("blur", 1.0)),
-                                 float(bg.get("focus", 1.0)))
+                                 num(bg.get("strength"), 1.0, 0.0, 3.0),
+                                 num(bg.get("blur"), 1.0, 0.0, 3.0),
+                                 num(bg.get("focus"), 1.0, 0.3, 1.8))
                 if pbg.ok:
                     self.bg = pbg
                     self.log(f"bg=para {path} far={pbg.far_ok} near={pbg.near_ok}")
@@ -1166,7 +1200,7 @@ class Renderer:
             if item["count"] <= 0:
                 continue
             sp = SpriteSet(self.hdc, hex_rgb(item.get("color")),
-                           float(item.get("angle", 12))
+                           num(item.get("angle"), 12.0, -80.0, 80.0)
                            if item["kind"] in ("rain", "meteor") else 12.0)
             self.sprite_sets.append(sp)
             self.effects.append(Effect(item, sp, self.sw, self.sh, self.k))
@@ -1239,10 +1273,10 @@ class Renderer:
                 self.log("视频流结束")
                 return False
         elif isinstance(self.bg, ParallaxBg):
-            self.bg.frame(hdc, t, float(bg.get("motion_speed", 1.0)),
+            self.bg.frame(hdc, t, num(bg.get("motion_speed"), 1.0, 0.1, 4.0),
                           mouse=(self.mx, self.my))
         elif isinstance(self.bg, ImageBg):
-            self.bg.frame(hdc, t, float(bg.get("motion_speed", 1.0)))
+            self.bg.frame(hdc, t, num(bg.get("motion_speed"), 1.0, 0.1, 4.0))
         else:
             self.bg.frame(hdc, t)
 
@@ -1253,7 +1287,7 @@ class Renderer:
             self._blit(self.glow_sp.glow, self.mx, self.my,
                        int(g.get("size", 360) * pulse * self.k),
                        int(g.get("size", 360) * pulse * self.k),
-                       float(g.get("alpha", 0.35)))
+                       num(g.get("alpha"), 0.35, 0.0, 1.0))
 
         # 3) 粒子
         for e in self.effects:
@@ -1268,9 +1302,9 @@ class Renderer:
         # 5) 时钟 / 文字
         okc = self.clock.update(self.cfg["clock"], t)
         if okc:
-            self.clock.draw(hdc, self._blit, float(self.cfg["clock"].get("alpha", 0.92)))
+            self.clock.draw(hdc, self._blit, num(self.cfg["clock"].get("alpha"), 0.92, 0.0, 1.0))
         if self.plain.update(self.cfg["text"], t):
-            self.plain.draw(hdc, self._blit, float(self.cfg["text"].get("alpha", 0.9)))
+            self.plain.draw(hdc, self._blit, num(self.cfg["text"].get("alpha"), 0.9, 0.0, 1.0))
 
         self.frames += 1
         gdi32.GdiFlush()
