@@ -915,6 +915,109 @@ def list_scenes() -> list[dict]:
     return out
 
 
+def _preset(pid: str, label: str, tag: str, bg1: str, bg2: str, fx: list,
+            glow: dict | None = None, hint: str = "") -> dict:
+    """拼一份完整的场景配置（缺省项由 norm_scene 补），供「风格预设」一键载入"""
+    return {
+        "id": pid, "label": label, "tag": tag, "hint": hint,
+        "cfg": {
+            "name": label,
+            "bg": {"type": "color", "src": "", "color": bg1, "color2": bg2,
+                   "motion": "kenburns", "motion_speed": 1.0},
+            "fx": fx,
+            "mouse": {
+                "glow": dict({"on": bool(glow), "size": 360, "alpha": 0.3,
+                              "color": "#ffd27a"}, **(glow or {})),
+                "ripple": {"on": True, "size": 520, "alpha": 0.5, "color": "#ffffff"},
+            },
+            "clock": {"on": False, "pos": "lt", "size": 56, "color": "#ffffff",
+                      "alpha": 0.9, "seconds": False, "only_time": False},
+            "text": {"on": False, "value": "", "pos": "lb", "size": 26,
+                     "color": "#ffffff", "alpha": 0.9},
+        },
+    }
+
+
+# 「参考观感、重画实现」：下面每张都是本机引擎里可实时渲染的参数组合，
+# 不含任何第三方素材，所以能随便改参数、改颜色、再存成自己的。
+SCENE_PRESETS = [
+    _preset("rain-neon", "雨夜霓虹", "夜景", "#070b18", "#241638", [
+        {"kind": "bokeh", "count": 16, "size": 1.4, "speed": 0.3, "alpha": 0.30,
+         "color": "#ff6fae"},
+        {"kind": "rain", "count": 200, "size": 0.9, "speed": 1.1, "alpha": 0.42,
+         "color": "#9ec4ff", "angle": 12},
+    ], {"color": "#7bd4ff"}),
+    _preset("aurora-snow", "极光雪原", "极光", "#03121f", "#0a3444", [
+        {"kind": "bokeh", "count": 14, "size": 1.9, "speed": 0.3, "alpha": 0.18,
+         "color": "#a78bfa"},
+        {"kind": "aurora", "count": 70, "size": 1.9, "speed": 0.5, "alpha": 0.20,
+         "color": "#4dffd0"},
+        {"kind": "snow", "count": 90, "size": 1.0, "speed": 0.8, "alpha": 0.55,
+         "color": "#ffffff"},
+    ], {"color": "#9ef7e0"}),
+    _preset("sakura", "樱落春溪", "春天", "#241726", "#6d3c52", [
+        {"kind": "petal", "count": 70, "size": 1.0, "speed": 1.0, "alpha": 0.9,
+         "color": "#ffc0d4"},
+        {"kind": "firefly", "count": 18, "size": 1.0, "speed": 0.7, "alpha": 0.6,
+         "color": "#ffe9a8"},
+    ], {"color": "#ffd0e0"}),
+    _preset("firefly-forest", "萤火森林", "森林", "#04120e", "#10331f", [
+        {"kind": "bokeh", "count": 12, "size": 1.5, "speed": 0.3, "alpha": 0.26,
+         "color": "#7dffb0"},
+        {"kind": "firefly", "count": 70, "size": 1.2, "speed": 0.9, "alpha": 0.95,
+         "color": "#c8ff9e"},
+    ], {"color": "#b6ff9e"}),
+    _preset("deepsea", "深海微光", "深海", "#001018", "#00384a", [
+        {"kind": "aurora", "count": 50, "size": 2.0, "speed": 0.4, "alpha": 0.14,
+         "color": "#00e5ff"},
+        {"kind": "bubble", "count": 60, "size": 1.0, "speed": 1.0, "alpha": 0.5,
+         "color": "#cfeeff"},
+    ], {"color": "#7ff0ff"}),
+    _preset("cyber-galaxy", "赛博星河", "赛博", "#04010d", "#1a0a2e", [
+        {"kind": "star", "count": 80, "size": 1.0, "speed": 0.8, "alpha": 0.8,
+         "color": "#ff8ae2"},
+        {"kind": "warp", "count": 170, "size": 1.0, "speed": 1.1, "alpha": 0.9,
+         "color": "#a9d6ff"},
+    ], {"color": "#c9a6ff"}),
+    _preset("hearth", "壁炉余烬", "暖调", "#140803", "#3a1405", [
+        {"kind": "bokeh", "count": 10, "size": 1.6, "speed": 0.35, "alpha": 0.22,
+         "color": "#ff5e00"},
+        {"kind": "ember", "count": 80, "size": 1.0, "speed": 1.0, "alpha": 0.9,
+         "color": "#ff8a3d"},
+    ], {"color": "#ff8a3d"}),
+    _preset("milkyway", "银河穿越", "太空", "#01030c", "#0a1230", [
+        {"kind": "star", "count": 120, "size": 1.0, "speed": 0.9, "alpha": 0.7,
+         "color": "#ffffff"},
+        {"kind": "warp", "count": 220, "size": 1.0, "speed": 1.3, "alpha": 0.85,
+         "color": "#dbe9ff"},
+    ], {"color": "#cfe0ff"}),
+    _preset("morning-mist", "晨雾微光", "极简", "#1b2430", "#4b5c6e", [
+        {"kind": "aurora", "count": 60, "size": 2.0, "speed": 0.35, "alpha": 0.13,
+         "color": "#ffd9a8"},
+        {"kind": "bokeh", "count": 18, "size": 1.7, "speed": 0.3, "alpha": 0.32,
+         "color": "#ffe4b8"},
+    ], {"color": "#ffe9c0"}),
+    _preset("golden", "金色庆典", "节日", "#191104", "#3d2a08", [
+        {"kind": "firefly", "count": 60, "size": 1.0, "speed": 1.1, "alpha": 0.9,
+         "color": "#ffd166"},
+        {"kind": "meteor", "count": 6, "size": 1.0, "speed": 1.1, "alpha": 0.7,
+         "color": "#fff2c0", "angle": 28},
+    ], {"color": "#ffd166"}),
+    _preset("meteor-night", "流星夜空", "夜空", "#02060f", "#101a3a", [
+        {"kind": "star", "count": 90, "size": 1.0, "speed": 0.9, "alpha": 0.75,
+         "color": "#cfe0ff"},
+        {"kind": "meteor", "count": 16, "size": 1.1, "speed": 1.0, "alpha": 0.95,
+         "color": "#ffffff", "angle": 30},
+    ], {"color": "#bfd4ff"}),
+    _preset("autumn", "秋日落叶", "秋", "#1d1206", "#5a3617", [
+        {"kind": "bokeh", "count": 12, "size": 1.6, "speed": 0.3, "alpha": 0.24,
+         "color": "#ffcf8a"},
+        {"kind": "leaf", "count": 45, "size": 1.1, "speed": 1.0, "alpha": 0.95,
+         "color": "#e0a556"},
+    ], {"color": "#ffc27a"}),
+]
+
+
 def scene_get(sid: str) -> dict:
     fp = scene_path(sid)
     if not fp.is_file():
@@ -1168,6 +1271,15 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception as e:
                     return self._err(f"缩略图失败: {e}", 500)
                 return self._send(200, fp.read_bytes(), "image/jpeg")
+
+            if path == "/api/scene/presets":
+                items = []
+                for p in SCENE_PRESETS:
+                    cfg = json.loads(json.dumps(p["cfg"]))
+                    cfg["name"] = p["label"]
+                    items.append({"id": p["id"], "label": p["label"], "tag": p["tag"],
+                                  "hint": p["hint"], "cfg": cfg})
+                return self._json({"ok": True, "items": items})
 
             if path == "/api/scene/list":
                 d = library_dir()

@@ -88,7 +88,12 @@ body.studio-mode aside .card{display:none}
 .st-chip:hover{border-color:var(--accent); color:var(--accent)}
 .st-chip img{width:26px; height:16px; object-fit:cover; border-radius:4px; display:block}
 
-.st-mine{margin-top:24px}
+.st-presets{margin-top:20px}
+.st-presets h3{margin:0 0 10px; font-size:15px; display:flex; align-items:center; gap:8px}
+.st-presets h3 .cnt{font-size:12px; color:var(--text-3); font-weight:500}
+#stPresets{max-height:none; gap:8px}
+#stPresets .pre{padding:7px 13px; border-radius:999px; font-size:13px}
+.st-mine{margin-top:20px}
 .st-mine h3{margin:0 0 12px; font-size:15px; display:flex; align-items:center; gap:8px}
 .st-mine h3 .cnt{font-size:12px; color:var(--text-3); font-weight:500}
 .st-cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(228px,1fr)); gap:14px}

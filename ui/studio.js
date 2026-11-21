@@ -21,7 +21,15 @@
     { k: 'star', label: '星光',
       def: { count: 80, size: 1, speed: 1, alpha: 0.9, color: '#ffffff' } },
     { k: 'leaf', label: '落叶',
-      def: { count: 40, size: 1, speed: 1, alpha: 0.95, color: '#e0a556' } }
+      def: { count: 40, size: 1, speed: 1, alpha: 0.95, color: '#e0a556' } },
+    { k: 'aurora', label: '极光',
+      def: { count: 90, size: 1.6, speed: 0.6, alpha: 0.22, color: '#5cf0c8' } },
+    { k: 'bokeh', label: '光斑',
+      def: { count: 26, size: 1.8, speed: 0.35, alpha: 0.3, color: '#ffd9a0' } },
+    { k: 'warp', label: '星空穿越',
+      def: { count: 150, size: 1, speed: 1, alpha: 0.85, color: '#cfe3ff' } },
+    { k: 'meteor', label: '流星', angle: true,
+      def: { count: 14, size: 1, speed: 1, alpha: 0.95, color: '#ffffff', angle: 32 } }
   ];
   const POS = [['lt', '左上'], ['ct', '中上'], ['rt', '右上'],
                ['lc', '左中'], ['cc', '居中'], ['rc', '右中'],
@@ -172,6 +180,23 @@
     } else if (k === 'star') {
       p.x = rnd(0, W); p.y = rnd(0, H);
       p.vx = p.vy = 0; p.s = rnd(0.35, 1.1); p.spin = rnd(0.4, 2);
+    } else if (k === 'aurora') {
+      p.x = rnd(-0.2 * W, W * 1.2); p.b = rnd(H * 0.1, H * 0.68); p.y = p.b;
+      p.s = rnd(0.7, 1.7); p.spin = rnd(0.22, 0.78);
+      p.vx = rnd(8, 30) * (Math.random() < 0.5 ? -1 : 1); p.vy = 0;
+    } else if (k === 'bokeh') {
+      p.x = rnd(-40, W + 40); p.y = first ? rnd(0, H) : H + 70;
+      p.vy = rnd(-30, -8); p.vx = rnd(-12, 12); p.s = rnd(0.5, 1.9);
+    } else if (k === 'warp') {
+      p.a = Math.random() * 6.283;
+      p.r = first ? rnd(0, Math.max(W, H) * 0.55) : rnd(0, 24);
+      p.s = rnd(0.6, 1.6); p.vx = p.vy = 0;
+    } else if (k === 'meteor') {
+      p.x = rnd(-0.4 * W, W * 0.85);
+      p.y = first ? rnd(-H * 0.6, H) : rnd(-H * 0.5, -40);
+      const v = rnd(0.55, 1.15);
+      p.vy = v; p.vx = v * Math.tan((+s.angle || 32) * Math.PI / 180);
+      p.s = rnd(0.7, 1.6);
     }
   }
 
@@ -244,6 +269,24 @@
           if (p.y < -40) spawn(K, s, p, false);
         } else if (k === 'star') {
           p.ph += dt * p.spin * sp;
+        } else if (k === 'aurora') {
+          p.ph += dt * p.spin * sp;
+          p.x += p.vx * sp * dt;
+          p.y = p.b + Math.sin(p.ph) * H * 0.05;
+          if (p.x < -W * 0.35) p.x = W * 1.35; else if (p.x > W * 1.35) p.x = -W * 0.35;
+        } else if (k === 'bokeh') {
+          p.ph += dt * 0.65 * sp;
+          p.x += (p.vx + Math.sin(p.ph) * 16) * sp * dt;
+          p.y += p.vy * sp * dt;
+          if (p.y < -100) spawn(K, s, p, false);
+        } else if (k === 'warp') {
+          p.r += (40 + p.r * 1.2) * sp * dt;
+          if (p.r > Math.hypot(W, H) * 0.64) {
+            p.a = Math.random() * 6.283; p.r = rnd(0, 24); p.s = rnd(0.6, 1.6);
+          }
+        } else if (k === 'meteor') {
+          p.x += p.vx * 900 * sp * dt; p.y += p.vy * 900 * sp * dt;
+          if (p.y > H + 200 || p.x > W + 400) spawn(K, s, p, false);
         }
       }
     });
@@ -307,6 +350,44 @@
           const d = 16 * p.s * sizeF * sc;
           g.globalAlpha = A * (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(p.ph)) ** 2);
           g.drawImage(spr, p.x - d / 2, p.y - d / 2, d, d);
+        }
+      } else if (k === 'aurora') {
+        const spr = spriteDot(col, 3, 160);
+        for (const p of arr) {
+          const d = 360 * p.s * sizeF * sc, dw = d * 0.42, dh = d * 1.5;
+          g.globalAlpha = Math.max(0.02, A * Math.max(0, 0.45 + 0.55 * Math.sin(p.ph * 0.8)) ** 1.2);
+          g.drawImage(spr, p.x - dw / 2, p.y - dh / 2, dw, dh);
+        }
+      } else if (k === 'bokeh') {
+        const spr = spriteDot(col, 3, 160);
+        for (const p of arr) {
+          const d = 150 * p.s * sizeF * sc;
+          g.globalAlpha = Math.max(0.02, A * (0.55 + 0.45 * Math.sin(p.ph * 1.4)));
+          g.drawImage(spr, p.x - d / 2, p.y - d / 2, d, d);
+        }
+      } else if (k === 'warp') {
+        const spr = spriteDot(col, 2, 64);
+        for (const p of arr) {
+          const ca = Math.cos(p.a), sa = Math.sin(p.a) * 0.78;
+          const cx = W * 0.5, cy = H * 0.5;
+          const a0 = A * Math.min(1, p.r / 110);
+          for (let j = 0; j < 6; j++) {
+            const f = j / 6, rr = p.r - f * (6 + p.r * 0.075);
+            if (rr <= 0) break;
+            const d = Math.max(2, (7 + p.r * 0.038) * p.s * sizeF * sc * (1 - f * 0.25));
+            g.globalAlpha = a0 * (1 - f * 0.42);
+            g.drawImage(spr, cx + ca * rr - d / 2, cy + sa * rr - d / 2, d, d);
+          }
+        }
+      } else if (k === 'meteor') {
+        const spr = spriteStreak(col);
+        for (const p of arr) {
+          const w = 24 * 1.1 * p.s * sizeF * sc, h = 160 * 2.6 * p.s * sizeF * sc;
+          g.globalAlpha = A * 0.62;
+          g.drawImage(spr, p.x - w / 2, p.y - h / 2, w, h);
+          const d = 22 * p.s * sizeF * sc;
+          g.globalAlpha = A;
+          g.drawImage(spriteSpark(col), p.x - d / 2, p.y - d / 2, d, d);
         }
       }
     });
@@ -754,7 +835,33 @@
     }
   }
 
+  /* ---------------------------------------------------------- 风格预设 */
+  let PRESETS = [];
+  async function loadPresets() {
+    const box = q('#stPresets');
+    if (!box) return;
+    try {
+      const j = await getJSON('/api/scene/presets');
+      PRESETS = j.items || [];
+    } catch (e) { PRESETS = []; }
+    if (!PRESETS.length) {
+      box.innerHTML = '<span style="color:var(--text-3); font-size:12px">预设加载失败</span>';
+      return;
+    }
+    box.innerHTML = PRESETS.map((p) =>
+      `<button class="st-chip pre" data-pid="${p.id}">${esc(p.label)}</button>`).join('');
+    box.querySelectorAll('.pre').forEach((b) => {
+      b.onclick = () => {
+        const p = PRESETS.find((x) => x.id === b.dataset.pid);
+        if (!p) return;
+        loadCfg(p.cfg, '');
+        if (window.toast) toast(`已载入「${p.label}」，右侧可继续微调`);
+      };
+    });
+  }
+
   async function refresh() {
+    if (q('#stPresets') && !PRESETS.length) loadPresets();
     try {
       const j = await getJSON('/api/scene/list');
       LIB = j.lib || [];
@@ -837,6 +944,8 @@
       const bg = cfg.bg || {};
       Object.keys(ST.bg).forEach((k) => { if (bg[k] != null) ST.bg[k] = bg[k]; });
       if (!ST.bg.name && ST.bg.src) ST.bg.name = basename(ST.bg.src);
+      // 场景里没列出的特效要关掉（DEF 默认会带一层雨）
+      Object.keys(ST.fx).forEach((k) => { ST.fx[k].on = false; });
       (cfg.fx || []).forEach((it) => {
         const s = ST.fx[it.kind];
         if (!s) return;

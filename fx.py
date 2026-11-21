@@ -357,6 +357,15 @@ KINDS = {
                                            "alpha": 0.90, "color": "#ffffff"}},
     "leaf":    {"label": "落叶",   "def": {"count": 40,  "speed": 1.0, "size": 1.0,
                                            "alpha": 0.95, "color": "#e0a556"}},
+    # ---- 氛围类（偏「好看」而非「天气」）
+    "aurora":  {"label": "极光",   "def": {"count": 90,  "speed": 0.6, "size": 1.6,
+                                           "alpha": 0.22, "color": "#5cf0c8"}},
+    "bokeh":   {"label": "光斑",   "def": {"count": 26,  "speed": 0.35, "size": 1.8,
+                                           "alpha": 0.30, "color": "#ffd9a0"}},
+    "warp":    {"label": "星空穿越", "def": {"count": 150, "speed": 1.0, "size": 1.0,
+                                            "alpha": 0.85, "color": "#cfe3ff"}},
+    "meteor":  {"label": "流星",   "def": {"count": 14,  "speed": 1.0, "size": 1.0,
+                                           "alpha": 0.95, "color": "#ffffff", "angle": 32}},
 }
 
 DEFAULT_SCENE = {
@@ -588,7 +597,8 @@ class ColorBg:
 
 # ------------------------------------------------------------------ 粒子
 class P:
-    __slots__ = ("x", "y", "vx", "vy", "s", "ph", "dir", "spin", "k")
+    __slots__ = ("x", "y", "vx", "vy", "s", "ph", "dir", "spin", "k",
+                 "b", "a", "r")            # b: 极光基准高度  a: 极坐标角度  r: 极坐标半径
 
     def __init__(self):
         self.x = self.y = self.vx = self.vy = 0.0
@@ -597,6 +607,7 @@ class P:
         self.dir = random.randint(0, 7)
         self.spin = random.uniform(-2.2, 2.2)
         self.k = 1.0
+        self.b = self.a = self.r = 0.0
 
 
 class Effect:
@@ -651,6 +662,31 @@ class Effect:
             p.vy = p.vx = 0.0
             p.s = random.uniform(0.35, 1.1)
             p.spin = random.uniform(0.4, 2.0)
+        elif k == "aurora":
+            p.x = random.uniform(-sw * 0.2, sw * 1.2)
+            p.b = random.uniform(sh * 0.10, sh * 0.68)
+            p.y = p.b
+            p.s = random.uniform(0.7, 1.7)
+            p.spin = random.uniform(0.22, 0.78)
+            p.vx = random.uniform(8, 30) * random.choice((-1.0, 1.0))
+            p.vy = 0.0
+        elif k == "bokeh":
+            p.x = random.uniform(-40, sw + 40)
+            p.y = random.uniform(0, sh) if first else sh + 70
+            p.vy = random.uniform(-30, -8)
+            p.vx = random.uniform(-12, 12)
+            p.s = random.uniform(0.5, 1.9)
+        elif k == "warp":
+            p.a = random.random() * 6.283
+            p.r = random.uniform(0, max(sw, sh) * 0.55) if first else random.uniform(0, 24)
+            p.s = random.uniform(0.6, 1.6)
+            p.vy = p.vx = 0.0
+        elif k == "meteor":
+            p.x = random.uniform(-sw * 0.4, sw * 0.85)
+            p.y = random.uniform(-sh * 0.6, sh) if first else random.uniform(-sh * 0.5, -40)
+            v = random.uniform(0.55, 1.15)
+            p.vy, p.vx = v, v * math.tan(math.radians(self.cfg.get("angle", 32)))
+            p.s = random.uniform(0.7, 1.6)
 
     # ---- 更新
     def step(self, dt: float, t: float) -> None:
@@ -697,6 +733,31 @@ class Effect:
                     self._spawn(p)
             elif k == "star":
                 p.ph += dt * p.spin * speed
+            elif k == "aurora":
+                p.ph += dt * p.spin * speed
+                p.x += p.vx * speed * self.k * dt
+                p.y = p.b + math.sin(p.ph) * sh * 0.05
+                if p.x < -sw * 0.35:
+                    p.x = sw * 1.35
+                elif p.x > sw * 1.35:
+                    p.x = -sw * 0.35
+            elif k == "bokeh":
+                p.ph += dt * 0.65 * speed
+                p.x += (p.vx + math.sin(p.ph) * 16) * speed * self.k * dt
+                p.y += p.vy * speed * self.k * dt
+                if p.y < -100:
+                    self._spawn(p)
+            elif k == "warp":
+                p.r += (40 + p.r * 1.2) * speed * self.k * dt
+                if p.r > math.hypot(sw, sh) * 0.64:
+                    p.a = random.random() * 6.283
+                    p.r = random.uniform(0, 24)
+                    p.s = random.uniform(0.6, 1.6)
+            elif k == "meteor":
+                p.x += p.vx * 900 * speed * self.k * dt
+                p.y += p.vy * 900 * speed * self.k * dt
+                if p.y > sh + 200 or p.x > sw + 400:
+                    self._spawn(p)
 
     # ---- 绘制
     def draw(self, hdc, blit) -> None:
@@ -726,6 +787,30 @@ class Effect:
             elif k == "star":
                 a = alpha * (0.35 + 0.65 * (0.5 + 0.5 * math.sin(p.ph)) ** 2)
                 blit(self.sp.spark, p.x, p.y, int(16 * p.s * size_f), 0, a)
+            elif k == "aurora":
+                a = alpha * max(0.0, 0.45 + 0.55 * math.sin(p.ph * 0.8)) ** 1.2
+                d = int(360 * p.s * size_f)
+                blit(self.sp.glow, p.x, p.y, int(d * 0.42), int(d * 1.5), max(0.02, a))
+            elif k == "bokeh":
+                a = alpha * (0.55 + 0.45 * math.sin(p.ph * 1.4))
+                blit(self.sp.glow, p.x, p.y, int(150 * p.s * size_f), 0, max(0.02, a))
+            elif k == "warp":
+                cx, cy = self.sw * 0.5, self.sh * 0.5
+                ca, sa = math.cos(p.a), math.sin(p.a) * 0.78
+                a0 = alpha * min(1.0, p.r / 110.0)
+                for j in range(6):
+                    f = j / 6.0
+                    rr = p.r - f * (6 + p.r * 0.075)
+                    if rr <= 0:
+                        break
+                    d = int((7 + p.r * 0.038) * p.s * size_f * (1.0 - f * 0.25))
+                    blit(self.sp.dot, cx + ca * rr, cy + sa * rr,
+                         max(2, d), 0, a0 * (1.0 - f * 0.42))
+            elif k == "meteor":
+                spr = self.sp.streak
+                blit(spr, p.x, p.y, int(spr.w * 1.1 * p.s * size_f),
+                     int(spr.h * 2.6 * p.s * size_f), alpha * 0.62)
+                blit(self.sp.spark, p.x, p.y, int(22 * p.s * size_f), 0, alpha)
 
 
 # ------------------------------------------------------------------ 涟漪 / 文字
@@ -918,7 +1003,8 @@ class Renderer:
             if item["count"] <= 0:
                 continue
             sp = SpriteSet(self.hdc, hex_rgb(item.get("color")),
-                           float(item.get("angle", 12)) if item["kind"] == "rain" else 12.0)
+                           float(item.get("angle", 12))
+                           if item["kind"] in ("rain", "meteor") else 12.0)
             self.sprite_sets.append(sp)
             self.effects.append(Effect(item, sp, self.sw, self.sh, self.k))
         m = self.cfg["mouse"]
