@@ -41,7 +41,8 @@
     fx.rain.on = true;                 // 新场景默认带一层雨，进来就能看到效果
     return {
       id: '', name: '我的特效壁纸',
-      bg: { type: 'color', src: '', name: '', color: '#0b1020', color2: '#243b6b', motion_speed: 1 },
+      bg: { type: 'color', src: '', name: '', color: '#0b1020', color2: '#243b6b', motion_speed: 1,
+            strength: 1, blur: 1, focus: 1 },
       fx,
       glow: { on: false, size: 360, alpha: 0.35, color: '#ffd27a' },
       ripple: { on: true, size: 520, alpha: 0.55, color: '#ffffff' },
@@ -464,11 +465,103 @@
     PV.t += dt;
     const g = PV.ctx;
     g.clearRect(0, 0, PV.W, PV.H);
+    if (ST.bg.type === 'para') drawParallax(g, PV.t);
     syncParts();
     step(dt);
     draw(g);
     drawOverlay(g, PV.t);
     PV.raf = requestAnimationFrame(loop);
+  }
+
+  /* ---------------------------------------------------------- 照片视差预览 */
+  const PB = { key: '', far: null, near: null, ex: 0, ey: 0 };
+
+  function paraImg() {
+    const img = q('#pvImg');
+    return img && img.complete && img.naturalWidth ? img : null;
+  }
+
+  /* 和 fx.py 的 _radial_mask_pgm 同一套算法：中心不透明、四周透明 */
+  function radialMask(w, h, focus) {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    const im = g.createImageData(w, h);
+    const r0 = 0.16 + 0.34 * focus, r1 = 0.55 + 0.50 * focus;
+    const span = Math.max(0.05, r1 - r0);
+    for (let y = 0; y < h; y++) {
+      const v = (y + 0.5) / h * 2 - 1;
+      for (let x = 0; x < w; x++) {
+        const u = (x + 0.5) / w * 2 - 1;
+        let k = (Math.hypot(u * 0.95, v * 0.95) - r0) / span;
+        k = k < 0 ? 0 : (k > 1 ? 1 : k);
+        k = k * k * (3 - 2 * k);
+        const i = (y * w + x) * 4;
+        im.data[i] = im.data[i + 1] = im.data[i + 2] = 255;
+        im.data[i + 3] = Math.round(255 * (1 - k));
+      }
+    }
+    g.putImageData(im, 0, 0);
+    return c;
+  }
+
+  function coverDraw(g, img, dw, dh) {
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const sc = Math.max(dw / iw, dh / ih);
+    const w = iw * sc, h = ih * sc;
+    g.drawImage(img, (dw - w) / 2, (dh - h) / 2, w, h);
+  }
+
+  function buildPara() {
+    const img = paraImg();
+    if (!img) return false;
+    const Z = 1.26;
+    const dw = Math.round(PV.W * Z), dh = Math.round(PV.H * Z);
+    const key = img.src + '|' + dw + 'x' + dh + '|' +
+      (+ST.bg.blur).toFixed(2) + '|' + (+ST.bg.focus).toFixed(2);
+    if (PB.key === key) return true;
+    const far = document.createElement('canvas');
+    far.width = dw; far.height = dh;
+    const fg = far.getContext('2d');
+    fg.filter = 'blur(' + Math.max(2, 9 * (+ST.bg.blur) * (PV.H / 1080)).toFixed(1) + 'px)';
+    try { coverDraw(fg, img, dw, dh); } catch (e) { coverDraw(fg, img, dw, dh); }
+    fg.filter = 'none';
+
+    const near = document.createElement('canvas');
+    near.width = dw; near.height = dh;
+    const ng = near.getContext('2d');
+    coverDraw(ng, img, dw, dh);
+    ng.globalCompositeOperation = 'destination-in';
+    ng.imageSmoothingEnabled = true;
+    ng.drawImage(radialMask(240, 135, +ST.bg.focus), 0, 0, dw, dh);
+
+    PB.far = far; PB.near = near; PB.key = key;
+    return true;
+  }
+
+  function drawParallax(g, t) {
+    if (!buildPara()) return;
+    const W = PV.W, H = PV.H, Z = 1.26;
+    const dw = PB.far.width, dh = PB.far.height;
+    const ww = Math.round(dw / Z), wh = Math.round(dh / Z);
+    const mx = (dw - ww) / 2, my = (dh - wh) / 2;
+    const st = +ST.bg.strength || 0;
+
+    // 鼠标缓动（-1 ~ 1）
+    const mxs = PV.mx > -900 ? PV.mx : W / 2;
+    const mys = PV.my > -900 ? PV.my : H / 2;
+    const tx = Math.max(-1, Math.min(1, (mxs / Math.max(1, W) - 0.5) * 2));
+    const ty = Math.max(-1, Math.min(1, (mys / Math.max(1, H) - 0.5) * 2));
+    PB.ex += (tx - PB.ex) * 0.1;
+    PB.ey += (ty - PB.ey) * 0.1;
+
+    const speed = +ST.bg.motion_speed || 1;
+    const breathe = 0.5 - 0.5 * Math.cos(t * 0.14 * Math.max(0.2, speed));
+    const fw = ww * (1 + 0.055 * breathe), fh = wh * (1 + 0.055 * breathe);
+    g.drawImage(PB.far, (dw - fw) / 2 + PB.ex * st * mx * 0.06,
+      (dh - fh) / 2 + PB.ey * st * my * 0.06, fw, fh, 0, 0, W, H);
+    g.drawImage(PB.near, mx + PB.ex * st * mx * 0.22, my + PB.ey * st * my * 0.22,
+      ww, wh, 0, 0, W, H);
   }
 
   /* ---------------------------------------------------------- 背景 */
@@ -513,14 +606,21 @@
 
     /* 背景 */
     h += `<div class="st-sec"><h3>背景</h3>`;
-    h += seg('bg.type', ST.bg.type, [['color', '渐变色'], ['image', '图片'], ['video', '视频']]);
+    h += seg('bg.type', ST.bg.type, [['color', '渐变色'], ['image', '图片'],
+                                     ['para', '照片视差'], ['video', '视频']]);
     h += `<div id="bgColor" ${ST.bg.type !== 'color' ? 'hidden' : ''}>
         <div class="st-line"><span>主色</span><input type="color" data-scope="bg" data-f="color" value="${ST.bg.color}">
         <span style="width:34px;text-align:right">副色</span><input type="color" data-scope="bg" data-f="color2" value="${ST.bg.color2}"></div>
       </div>`;
     h += `<div id="bgPick" ${ST.bg.type === 'color' ? 'hidden' : ''}>
+        <div class="st-hint" id="bgParaHint" ${ST.bg.type === 'para' ? '' : 'hidden'}>选一张照片，鼠标在桌面上移动时远近两层会错开，像看立体照片。</div>
         <button class="st-chip" id="bgUpload">＋ 导入本地${ST.bg.type === 'video' ? '视频' : '图片'}</button>
         <div class="st-chips" id="bgList"></div>
+      </div>`;
+    h += `<div id="bgPara" ${ST.bg.type === 'para' ? '' : 'hidden'}>
+        ${slider('bg', 'strength', '视差强度', 0, 3, 0.1, ST.bg.strength, 'x')}
+        ${slider('bg', 'blur', '虚化', 0, 3, 0.1, ST.bg.blur, 'x')}
+        ${slider('bg', 'focus', '清晰区', 0.3, 1.8, 0.05, ST.bg.focus)}
       </div>`;
     h += slider('bg', 'motion_speed', '推拉', 0.2, 3, 0.1, ST.bg.motion_speed, 'x');
     h += `</div>`;
@@ -677,6 +777,11 @@
           q('#bgColor').hidden = ST.bg.type !== 'color';
           q('#bgPick').hidden = ST.bg.type === 'color';
           q('#bgUpload').textContent = '＋ 导入本地' + (ST.bg.type === 'video' ? '视频' : '图片');
+          const bp = q('#bgPara');
+          if (bp) bp.hidden = ST.bg.type !== 'para';
+          const bh = q('#bgParaHint');
+          if (bh) bh.hidden = ST.bg.type !== 'para';
+          if (ST.bg.type !== 'para') PB.key = '';
           fillBgList();
           applyBg();
         }
@@ -802,7 +907,8 @@
     return {
       name: ST.name,
       bg: { type: ST.bg.type, src: ST.bg.src, name: ST.bg.name,
-            color: ST.bg.color, color2: ST.bg.color2, motion_speed: +ST.bg.motion_speed },
+            color: ST.bg.color, color2: ST.bg.color2, motion_speed: +ST.bg.motion_speed,
+            strength: +ST.bg.strength, blur: +ST.bg.blur, focus: +ST.bg.focus },
       fx,
       mouse: { glow: { ...ST.glow }, ripple: { ...ST.ripple } },
       clock: { ...ST.clock }, text: { ...ST.text }

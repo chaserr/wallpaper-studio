@@ -371,7 +371,8 @@ KINDS = {
 DEFAULT_SCENE = {
     "name": "新的特效壁纸",
     "bg": {"type": "color", "src": "", "color": "#0b1020", "color2": "#1b2a4a",
-           "motion": "kenburns", "motion_speed": 1.0},
+           "motion": "kenburns", "motion_speed": 1.0,
+           "strength": 1.0, "blur": 1.0, "focus": 1.0},
     "fx": [{"kind": "rain", **KINDS["rain"]["def"]}],
     "mouse": {"glow": {"on": False, "size": 360, "alpha": 0.35, "color": "#ffd27a"},
               "ripple": {"on": True, "size": 520, "alpha": 0.55, "color": "#ffffff"}},
@@ -566,6 +567,153 @@ class ImageBg:
 
     def release(self):
         self.bm.release()
+
+
+class ParallaxBg:
+    """照片视差背景：一张照片拆成「远 / 近」两层，鼠标一动就有立体感。
+
+    · 近层 = 原图，中心清晰、四周羽化（alpha 遮罩），跟随鼠标位移大
+    · 远层 = 同一张图高斯模糊，位移小，还会极慢地呼吸缩放
+    遮罩和模糊都交给 ffmpeg 做（像素级运算在 C 里跑），Python 只负责贴图。
+    """
+
+    ZMAX = 1.26                 # 图层比屏幕大 26%，留出位移余量
+    LAYER_MAX_W = 3840
+
+    def __init__(self, hdc, ffmpeg, path, sw, sh, strength=1.0, blur=1.0, focus=1.0):
+        self.sw, self.sh = sw, sh
+        self.hdc = hdc
+        self.ok = False
+        self.strength = max(0.0, min(3.0, float(strength or 1.0)))
+        self.blur = max(0.0, min(3.0, float(blur or 1.0)))
+        self.focus = max(0.3, min(1.8, float(focus or 1.0)))
+        self.ex = self.ey = 0.0          # 缓动后的鼠标（-1 ~ 1）
+        self.dw = min(int(sw * self.ZMAX), self.LAYER_MAX_W)
+        self.dh = max(2, int(round(self.dw * sh / sw / 2)) * 2)
+        self.ww = max(2, int(round(self.dw / self.ZMAX)))
+        self.wh = max(2, int(round(self.dh / self.ZMAX)))
+        self.far = Bitmap(hdc, self.dw, self.dh)
+        self.near = Bitmap(hdc, self.dw, self.dh)
+        self.far_ok = self.near_ok = False
+        sigma = max(1.5, min(60.0, 9.0 * self.blur * (sh / 1080.0)))
+        self._build_far(ffmpeg, path, sigma)
+        self._build_near(ffmpeg, path)
+        self.ok = self.far_ok or self.near_ok
+
+    # ---- 远层：模糊
+    def _build_far(self, ffmpeg, path, sigma: float) -> None:
+        fc = (f"scale={self.dw}:{self.dh}:force_original_aspect_ratio=increase,"
+              f"crop={self.dw}:{self.dh},gblur=sigma={sigma:.2f}")
+        raw = self._run(ffmpeg, ["-i", path, "-vf", fc])
+        if raw and len(raw) >= self.dw * self.dh * 4:
+            self.far.write(raw[:self.dw * self.dh * 4])
+            self.far_ok = True
+
+    # ---- 近层：清晰 + 中心 alpha 遮罩（预乘）
+    def _build_near(self, ffmpeg, path) -> None:
+        mask = None
+        try:
+            import tempfile
+            fd, mask = tempfile.mkstemp(suffix=".pgm", prefix="ws_mask_")
+            with os.fdopen(fd, "wb") as f:
+                f.write(_radial_mask_pgm(240, 135, self.focus))
+            fc = (f"[1:v]scale={self.dw}:{self.dh}:flags=bicubic,format=gray[mk];"
+                  f"[0:v]scale={self.dw}:{self.dh}:force_original_aspect_ratio=increase,"
+                  f"crop={self.dw}:{self.dh},format=rgba[im];"
+                  # AlphaBlend 要预乘 alpha；ffmpeg 的 premultiply 滤镜在这里会丢颜色，
+                  # 改用 geq 逐像素乘（一次性，2016×1134 约 0.3 秒）
+                  f"[im][mk]alphamerge,format=rgba,"
+                  f"geq=r='r(X,Y)*alpha(X,Y)/255':g='g(X,Y)*alpha(X,Y)/255':"
+                  f"b='b(X,Y)*alpha(X,Y)/255':a='alpha(X,Y)'[v]")
+            raw = self._run(ffmpeg, ["-i", path, "-i", mask,
+                                     "-filter_complex", fc, "-map", "[v]"])
+            if raw and len(raw) >= self.dw * self.dh * 4:
+                self.near.write(raw[:self.dw * self.dh * 4])
+                self.near_ok = True
+        except Exception:
+            self.near_ok = False
+        finally:
+            if mask:
+                try:
+                    os.unlink(mask)
+                except Exception:
+                    pass
+
+    @staticmethod
+    def _run(ffmpeg, args) -> bytes:
+        cmd = [ffmpeg, "-hide_banner", "-loglevel", "error", *args,
+               "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "bgra", "-"]
+        try:
+            return subprocess.run(cmd, capture_output=True, timeout=90).stdout
+        except Exception:
+            return b""
+
+    # ---- 逐帧
+    def frame(self, hdc, t: float, speed: float = 1.0, mouse=None) -> None:
+        if not self.ok:
+            return
+        if mouse:
+            tx = max(-1.0, min(1.0, (mouse[0] / max(1, self.sw) - 0.5) * 2.0))
+            ty = max(-1.0, min(1.0, (mouse[1] / max(1, self.sh) - 0.5) * 2.0))
+            ease = 0.10 * max(0.2, min(3.0, speed))
+            self.ex += (tx - self.ex) * min(1.0, ease)
+            self.ey += (ty - self.ey) * min(1.0, ease)
+
+        mx = (self.dw - self.ww) / 2.0
+        my = (self.dh - self.wh) / 2.0
+        # 位移量按「可移动余量」的比例算，换分辨率不用改参数；近层动得比远层多才像视差
+        sxf = self.ex * self.strength * mx * 0.06
+        syf = self.ey * self.strength * my * 0.06
+        sxn = self.ex * self.strength * mx * 0.22
+        syn = self.ey * self.strength * my * 0.22
+
+        if self.far_ok:
+            # 远层：极慢呼吸缩放 + 小位移
+            breathe = 0.5 - 0.5 * math.cos(t * 0.14 * max(0.2, speed))
+            fw = int(self.ww * (1.0 + 0.055 * breathe))
+            fh = int(self.wh * (1.0 + 0.055 * breathe))
+            sx = (self.dw - fw) / 2.0 + sxf
+            sy = (self.dh - fh) / 2.0 + syf
+            gdi32.SetStretchBltMode(hdc, COLORONCOLOR)
+            gdi32.StretchBlt(hdc, 0, 0, self.sw, self.sh, self.far.hdc,
+                             int(sx), int(sy), fw, fh, SRCCOPY)
+        else:
+            gdi32.SetStretchBltMode(hdc, COLORONCOLOR)
+            gdi32.StretchBlt(hdc, 0, 0, self.sw, self.sh, self.near.hdc,
+                             int(mx), int(my), self.ww, self.wh, SRCCOPY)
+
+        if self.near_ok:
+            sx = mx + sxn
+            sy = my + syn
+            bf = _BLENDFUNC(AC_SRC_OVER, 0, 255, AC_SRC_ALPHA)
+            msimg32.AlphaBlend(hdc, 0, 0, self.sw, self.sh, self.near.hdc,
+                               int(sx), int(sy), self.ww, self.wh, bf)
+        gdi32.GdiFlush()
+
+    def release(self):
+        self.far.release()
+        self.near.release()
+
+
+def _radial_mask_pgm(w: int, h: int, focus: float = 1.0) -> bytes:
+    """生成一张径向渐变灰度图（PGM）：中心 255（清晰），边缘 0（露出模糊层）"""
+    r0 = 0.16 + 0.34 * focus
+    r1 = 0.55 + 0.50 * focus
+    span = max(0.05, r1 - r0)
+    rows = []
+    for y in range(h):
+        v = (y + 0.5) / h * 2.0 - 1.0
+        row = bytearray(w)
+        for x in range(w):
+            u = (x + 0.5) / w * 2.0 - 1.0
+            r = math.hypot(u * 0.95, v * 0.95)
+            k = (r - r0) / span
+            k = 0.0 if k < 0.0 else (1.0 if k > 1.0 else k)
+            k = k * k * (3.0 - 2.0 * k)          # smoothstep
+            row[x] = int(255 * (1.0 - k))
+        rows.append(bytes(row))
+    head = b"P5\n%d %d\n255\n" % (w, h)
+    return head + b"".join(rows)
 
 
 class ColorBg:
@@ -984,6 +1132,21 @@ class Renderer:
             if btype == "video" and path and os.path.isfile(path) and self.ffmpeg:
                 self.bg = VideoBg(self.hdc, self.ffmpeg, path, self.sw, self.sh)
                 self.log(f"bg=video {path}")
+            elif btype == "para" and path and os.path.isfile(path) and self.ffmpeg:
+                pbg = ParallaxBg(self.hdc, self.ffmpeg, path, self.sw, self.sh,
+                                 float(bg.get("strength", 1.0)),
+                                 float(bg.get("blur", 1.0)),
+                                 float(bg.get("focus", 1.0)))
+                if pbg.ok:
+                    self.bg = pbg
+                    self.log(f"bg=para {path} far={pbg.far_ok} near={pbg.near_ok}")
+                else:
+                    pbg.release()
+                    self.log("视差层失败，回退图片背景")
+                    img = ImageBg(self.hdc, self.ffmpeg, path, self.sw, self.sh)
+                    if img.ok:
+                        self.bg = img
+                        self.log("bg=image(回退)")
             elif btype == "image" and path and os.path.isfile(path) and self.ffmpeg:
                 img = ImageBg(self.hdc, self.ffmpeg, path, self.sw, self.sh)
                 if img.ok:
@@ -1067,11 +1230,17 @@ class Renderer:
         hdc = self.hdc
         bg = self.cfg["bg"]
 
+        # 0) 鼠标（视差背景要用当前帧的坐标，必须放在画背景之前）
+        self._poll_mouse()
+
         # 1) 背景
         if isinstance(self.bg, VideoBg):
             if not self.bg.frame(hdc):
                 self.log("视频流结束")
                 return False
+        elif isinstance(self.bg, ParallaxBg):
+            self.bg.frame(hdc, t, float(bg.get("motion_speed", 1.0)),
+                          mouse=(self.mx, self.my))
         elif isinstance(self.bg, ImageBg):
             self.bg.frame(hdc, t, float(bg.get("motion_speed", 1.0)))
         else:
@@ -1087,7 +1256,6 @@ class Renderer:
                        float(g.get("alpha", 0.35)))
 
         # 3) 粒子
-        self._poll_mouse()
         for e in self.effects:
             e.step(dt, t)
             e.draw(hdc, self._blit)

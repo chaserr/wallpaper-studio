@@ -87,9 +87,11 @@ body.studio-mode aside .card{display:none}
 }
 .st-chip:hover{border-color:var(--accent); color:var(--accent)}
 .st-chip img{width:26px; height:16px; object-fit:cover; border-radius:4px; display:block}
+.st-hint{font-size:12px; line-height:1.55; color:var(--text-3); margin:2px 0 8px;
+  padding:8px 10px; border-radius:9px; background:rgba(127,127,127,.08)}
+#bgPara{margin-top:4px}
 
-.st-presets{margin-top:20px}
-.st-presets h3{margin:0 0 10px; font-size:15px; display:flex; align-items:center; gap:8px}
+.st-presets{margin-top:20px}.st-presets h3{margin:0 0 10px; font-size:15px; display:flex; align-items:center; gap:8px}
 .st-presets h3 .cnt{font-size:12px; color:var(--text-3); font-weight:500}
 #stPresets{max-height:none; gap:8px}
 #stPresets .pre{padding:7px 13px; border-radius:999px; font-size:13px}

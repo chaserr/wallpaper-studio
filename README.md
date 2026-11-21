@@ -22,6 +22,9 @@
 - **12 套风格预设**：雨夜霓虹 / 极光雪原 / 樱落春溪 / 萤火森林 / 深海微光 / 赛博星河 /
   壁炉余烬 / 银河穿越 / 晨雾微光 / 金色庆典 / 流星夜空 / 秋日落叶
   —— 一键载入整套参数，再改颜色和数量存成自己的
+- **照片视差（伪 3D）**：拿自己的照片当背景，同一张图拆成「清晰近层 + 虚化远层」，
+  鼠标在桌面上移动时两层按不同比例错开，像看立体照片；虚化量、清晰区大小、视差强度可调
+  - 近层的羽化遮罩用 ffmpeg `alphamerge` 合成，再 `geq` 预乘 alpha 供 `AlphaBlend` 用
 
 ## 运行
 
@@ -52,7 +55,7 @@ pip install imageio-ffmpeg
 ```
 app.py            HTTP 服务 + 壁纸设置 + 图库/场景/动态壁纸接口 + 桌面窗口
 dynwall.py        动态壁纸引擎（WorkerW 层 + ffmpeg rawvideo 管道）
-fx.py             特效壁纸渲染引擎（GDI/AlphaBlend/粒子/涟漪/文字）
+fx.py             特效壁纸渲染引擎（GDI/AlphaBlend/粒子/涟漪/文字/照片视差）
 ui/index.html     主界面（单文件，含样式与脚本）
 ui/studio.js      自制特效壁纸的参数面板与 Canvas 预览
 ui/studio.css
