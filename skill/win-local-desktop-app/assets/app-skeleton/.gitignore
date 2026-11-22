@@ -1,0 +1,28 @@
+# 打包产物
+out/
+out*/
+build/
+work/
+work*/
+dist/
+release/
+*.spec.bak
+
+# 第三方二进制 / 大文件
+vendor/
+
+# 运行时数据、日志、本地配置
+*.log
+config.json
+_state.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 系统
+Thumbs.db
+desktop.ini
+.DS_Store

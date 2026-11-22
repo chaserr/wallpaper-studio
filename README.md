@@ -114,3 +114,13 @@ pyinstaller --noconfirm --distpath _build --workpath _build/work _build\壁纸�
 [MIT](LICENSE) —— 随便用、随便改、随便分发，保留版权声明即可。
 
 壁纸与视频素材来自必应、Wallhaven、Mixkit，版权归各自作者所有，本工具只做本地缓存与展示。
+
+## 想做一个类似的工具？
+
+这个项目从一句话需求做到 v1.2.2，过程里踩的坑和形成的做法整理到了 [`skill/`](skill/) 目录：
+
+- **[`skill/PROMPT.md`](skill/PROMPT.md)** —— 一段可以直接复制给 AI 的提示词
+- **[`skill/win-local-desktop-app/`](skill/win-local-desktop-app/)** —— 带可运行骨架的 skill：
+  技术选型理由、七个阶段的流程、16 个真实踩坑、PyInstaller 打包与发版清单
+
+和壁纸无关的部分都抽出来了，凡是「Python 标准库 + 本地 HTTP 服务 + Web UI + 打包成 exe」的项目都能直接用。

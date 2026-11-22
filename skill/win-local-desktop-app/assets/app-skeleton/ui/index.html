@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>我的本地工具</title>
+<style>
+  :root{--bg:#f6f7f9;--panel:#fff;--line:#e6e8ec;--text:#1a1d23;--text2:#5b6270;
+        --accent:#2f6fed;--shadow:0 1px 3px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.08)}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+       background:var(--bg);color:var(--text)}
+  .wrap{max-width:960px;margin:0 auto;padding:28px 22px 60px}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--text2);font-size:13px;margin-bottom:22px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+        box-shadow:var(--shadow);padding:18px 20px;margin-bottom:16px}
+  .row{display:flex;align-items:center;gap:12px}
+  .row .grow{flex:1}
+  button{font:inherit;padding:7px 14px;border-radius:9px;border:1px solid var(--line);
+         background:#fff;color:var(--text);cursor:pointer;transition:.14s}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{filter:brightness(1.06);color:#fff}
+  .list{margin:0;padding:0;list-style:none}
+  .list li{display:flex;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:13px}
+  .list li:last-child{border-bottom:none}
+  .list .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .list .s{color:var(--text2);font-variant-numeric:tabular-nums}
+  .empty{color:var(--text2);font-size:13px;padding:10px 0}
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+         background:#1a1d23;color:#fff;padding:9px 16px;border-radius:10px;font-size:13px;
+         opacity:0;pointer-events:none;transition:.2s}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>我的本地工具</h1>
+  <div class="sub" id="meta">正在读取…</div>
+
+  <div class="card">
+    <div class="row">
+      <span class="grow">数据目录（点右边打开）</span>
+      <button id="btnFolder">打开文件夹</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="margin-bottom:12px">
+      <span class="grow"><b>条目</b> <span id="count" class="s"></span></span>
+      <button id="btnReload">刷新</button>
+    </div>
+    <ul class="list" id="list"></ul>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const state = { items: [], seq: 0 };
+
+function toast(msg){
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* 统一的接口调用：只认 {ok:true}，错误提示直接用后端给的文案 */
+async function api(url, opt){
+  const r = await fetch(url, opt);
+  const text = await r.text();
+  let j;
+  try { j = JSON.parse(text); }
+  catch { throw new Error('响应不是 JSON：' + text.slice(0, 80)); }
+  if (!j.ok) throw new Error(j.error || '请求失败');
+  return j;
+}
+
+function fmtSize(n){
+  if (!n && n !== 0) return '';
+  return n >= 1048576 ? (n/1048576).toFixed(1) + ' MB' : (n/1024).toFixed(0) + ' KB';
+}
+
+function render(){
+  const box = $('#list');
+  if (!state.items.length){
+    box.innerHTML = '<li class="empty">还没有条目，把文件放进数据目录再点刷新</li>';
+    $('#count').textContent = '';
+    return;
+  }
+  box.innerHTML = state.items.map(it =>
+    `<li><span class="n">${esc(it.name)}</span><span class="s">${fmtSize(it.size)}</span></li>`
+  ).join('');
+  $('#count').textContent = `共 ${state.items.length} 个`;
+}
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function loadItems(){
+  const my = (state.seq = (state.seq || 0) + 1);   // 竞态令牌：晚到的响应直接丢弃
+  try{
+    const j = await api('/api/items');
+    if (my !== state.seq) return;
+    state.items = j.items || [];
+    render();
+  }catch(e){
+    if (my !== state.seq) return;
+    $('#list').innerHTML = `<li class="empty">读取失败：${esc(e.message)}</li>`;
+    reportError('loadItems', e);
+  }
+}
+
+async function loadStatus(){
+  try{
+    const j = await api('/api/status');
+    $('#meta').textContent = `${j.app} v${j.ver} · 数据目录 ${j.dataRoot}`;
+  }catch(e){ reportError('loadStatus', e); }
+}
+
+/* 前端异常上报到本机日志，打包后没控制台也能查 */
+function reportError(where, e){
+  try{
+    fetch('/api/log', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ msg: '[' + where + '] ' + (e && e.message || e) })
+    });
+  }catch(_){}
+}
+window.addEventListener('error', ev => reportError('window', ev.message));
+window.addEventListener('unhandledrejection', ev => reportError('promise', ev.reason));
+
+$('#btnReload').onclick = loadItems;
+$('#btnFolder').onclick = async () => {
+  try{ await api('/api/open-folder', {method:'POST'}); }
+  catch(e){ toast(e.message); }
+};
+
+loadStatus();
+loadItems();
+</script>
+</body>
+</html>
