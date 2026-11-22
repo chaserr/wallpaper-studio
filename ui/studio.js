@@ -614,8 +614,11 @@
       </div>`;
     h += `<div id="bgPick" ${ST.bg.type === 'color' ? 'hidden' : ''}>
         <div class="st-hint" id="bgParaHint" ${ST.bg.type === 'para' ? '' : 'hidden'}>选一张照片，鼠标在桌面上移动时远近两层会错开，像看立体照片。</div>
-        <button class="st-chip" id="bgUpload">＋ 导入本地${ST.bg.type === 'video' ? '视频' : '图片'}</button>
-        <div class="st-chips" id="bgList"></div>
+        <div class="bg-pick-head">
+          <button class="st-chip" id="bgUpload">＋ 从电脑导入</button>
+          <span class="bg-pick-tip">我的壁纸 <b id="bgCount"></b></span>
+        </div>
+        <div class="st-thumbs" id="bgList"></div>
       </div>`;
     h += `<div id="bgPara" ${ST.bg.type === 'para' ? '' : 'hidden'}>
         ${slider('bg', 'strength', '视差强度', 0, 3, 0.1, ST.bg.strength, 'x')}
@@ -712,14 +715,21 @@
     const items = LIB.filter((i) => wantVideo
       ? /\.(mp4|webm|mov|mkv|avi|m4v|wmv)$/i.test(i.name)
       : /\.(jpg|jpeg|png|webp|bmp|avif|gif)$/i.test(i.name));
+    const cnt = q('#bgCount');
     if (!items.length) {
-      box.innerHTML = `<span style="font-size:12px;color:var(--text-3)">还没有素材，先导入一个${wantVideo ? '视频' : '图片'}</span>`;
+      box.innerHTML = `<div class="st-thumbs-empty">我的壁纸里还没有${wantVideo ? '视频' : '图片'}，点「从电脑导入」加一个</div>`;
+      if (cnt) cnt.textContent = '';
       return;
     }
-    box.innerHTML = items.slice(0, 24).map((i) => {
+    if (cnt) cnt.textContent = items.length + ' 张';
+    box.innerHTML = items.slice(0, 60).map((i) => {
       const on = ST.bg.name === i.name;
-      return `<button class="st-chip" data-pick="${esc(i.name)}" data-path="${esc(i.path)}"
-        style="${on ? 'border-color:var(--accent);color:var(--accent)' : ''}">${esc(i.name.length > 18 ? i.name.slice(0, 17) + '…' : i.name)}</button>`;
+      const url = '/file?name=' + encodeURIComponent(i.name);
+      const media = wantVideo
+        ? `<video src="${esc(url)}" muted preload="metadata"></video>`
+        : `<img loading="lazy" src="${esc(url)}" alt="">`;
+      return `<button class="st-thumb ${on ? 'on' : ''}" data-pick="${esc(i.name)}"
+        data-path="${esc(i.path)}" title="${esc(i.name)}">${media}${on ? '<i class="ok">✓</i>' : ''}</button>`;
     }).join('');
   }
 
@@ -776,7 +786,7 @@
           seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === segBtn));
           q('#bgColor').hidden = ST.bg.type !== 'color';
           q('#bgPick').hidden = ST.bg.type === 'color';
-          q('#bgUpload').textContent = '＋ 导入本地' + (ST.bg.type === 'video' ? '视频' : '图片');
+          q('#bgUpload').textContent = '＋ 从电脑导入';
           const bp = q('#bgPara');
           if (bp) bp.hidden = ST.bg.type !== 'para';
           const bh = q('#bgParaHint');

@@ -408,17 +408,6 @@
     </div>
 
     <div class="card">
-      <h4>🌐 分享给别人用</h4>
-      <div class="row">
-        <span>局域网访问</span>
-        <label class="switch"><input type="checkbox" id="lanOn"><i class="track"></i></label>
-      </div>
-      <div id="lanUrls"><p class="hint">正在获取本机地址…</p></div>
-      <button class="chip" id="btnCopyLan" style="width:100%">复制访问链接</button>
-      <p class="hint">同一 WiFi 下的手机或电脑，用浏览器打开上面地址即可浏览、下载、换壁纸。改动开关后需重启程序生效。</p>
-    </div>
-
-    <div class="card">
       <h4>↩️ 上一张</h4>
       <button class="btn ghost" style="width:100%" id="btnBack">换回之前那张</button>
     </div>
@@ -534,7 +523,7 @@
 <script>
 const $ = s => document.querySelector(s);
 const state = { tab:'daily', items:[], q:'', page:0, size:'wallpaper', loading:false, done:false, current:null, whPage:1, dynItems:[], dynState:{},
-  dynMode:'local', mxItems:[], mxPage:1, mxCat:'cat', mxCats:null, mxLoading:false, mxDone:false, mxBusy:null, share:{} };
+  dynMode:'local', mxItems:[], mxPage:1, mxCat:'cat', mxCats:null, mxLoading:false, mxDone:false, mxBusy:null };
 
 /* ---------- 主题 ---------- */
 const savedTheme = localStorage.getItem('ws-theme');
@@ -585,7 +574,9 @@ function skeleton(n){
 }
 
 function tileHTML(it, i){
-  const thumb = it.thumb ? px(it.thumb) : (it.url || '');
+  /* 本地图库给的是 /file?name=xxx，不能再套 /proxy（/proxy 只吃 http(s)），否则 400 全部加载失败 */
+  const raw = it.thumb || it.url || '';
+  const thumb = /^(https?:)?\/\//i.test(raw) ? px(raw) : raw;
   const t = esc(it.title || it.name || '壁纸');
   return `<div class="tile" data-i="${i}">
     <img class="ph" loading="lazy" src="${esc(thumb)}" alt="${t}" onerror="this.style.opacity=.15">
@@ -1179,43 +1170,8 @@ $('#dynFile').onchange = e => {
   e.target.value = '';
 };
 
-/* ---------- 分享 / 局域网 ---------- */
-async function loadShare(){
-  try{
-    const j = await api('/api/share');
-    state.share = j;
-    $('#lanOn').checked = !!j.lan;
-    const box = $('#lanUrls');
-    if (!j.urls || !j.urls.length){
-      box.innerHTML = '<p class="hint">没检测到局域网地址（先连上 WiFi / 网线）。</p>';
-      return;
-    }
-    box.innerHTML = j.urls.map(u =>
-      `<a class="lanurl" href="${esc(u)}" target="_blank" rel="noreferrer">${esc(u)}</a>`).join('')
-      + `<p class="hint">${j.lan ? '手机连同一个 WiFi，浏览器输入上面地址即可。' : '局域网访问已关闭，打开开关并重启程序后生效。'}</p>`;
-  }catch(e){
-    $('#lanUrls').innerHTML = `<p class="hint">读取失败：${esc(e.message)}</p>`;
-  }
-}
-$('#lanOn').onchange = async e => {
-  try{
-    await api('/api/share', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({lan: e.target.checked})});
-    toast('已保存，重启程序后生效');
-    loadShare();
-  }catch(err){ toast(err.message, true); }
-};
-$('#btnCopyLan').onclick = () => {
-  const u = (state.share.urls || [])[0];
-  if (!u) return toast('没有可用地址', true);
-  const done = () => toast('已复制：' + u);
-  if (navigator.clipboard) navigator.clipboard.writeText(u).then(done).catch(() => toast(u));
-  else toast(u);
-};
-
 /* 启动 */
 syncRotate();
-loadShare();
 loadDaily();
 (function(){
   const t = (location.hash || '').replace('#','');

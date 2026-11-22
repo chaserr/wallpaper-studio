@@ -209,6 +209,13 @@ EXT_BY_TYPE = {
     "image/avif": ".avif", "video/mp4": ".mp4",
 }
 
+# 扩展名 → MIME（/file 直接按磁盘文件返回时要给对 Content-Type，否则浏览器可能不渲染）
+EXT_MIME = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+    ".webp": "image/webp", ".gif": "image/gif", ".bmp": "image/bmp",
+    ".avif": "image/avif", ".mp4": "video/mp4",
+}
+
 
 def guess_ext(ctype: str, url: str) -> str:
     ct = (ctype or "").split(";")[0].strip().lower()
@@ -1259,12 +1266,6 @@ class Handler(BaseHTTPRequestHandler):
                                    "cats": [{"slug": s, "name": n} for s, n in MIXKIT_CATS],
                                    "hasMore": len(items) >= 12})
 
-            if path == "/api/share":
-                port = self.server.server_address[1]
-                cfg = load_config()
-                return self._json({"ok": True, "lan": bool(cfg.get("lan", True)),
-                                   "port": port, "urls": lan_urls(port)})
-
             if path == "/api/library":
                 return self._json({"ok": True, "items": list_library(library_dir())})
 
@@ -1348,9 +1349,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._err("非法路径", 403)
                 if not fp.is_file():
                     return self._err("文件不存在", 404)
-                ctype = EXT_BY_TYPE.get("image" + fp.suffix.lower(), "application/octet-stream")
-                if fp.suffix.lower() == ".mp4":
-                    ctype = "video/mp4"
+                ctype = EXT_MIME.get(fp.suffix.lower(), "application/octet-stream")
                 return self._send(200, fp.read_bytes(), ctype)
 
             if path == "/proxy":
@@ -1414,15 +1413,6 @@ class Handler(BaseHTTPRequestHandler):
                 threading.Thread(target=run_dyn_job, args=(jid, item, autoplay),
                                  daemon=True).start()
                 return self._json({"ok": True, "job": jid})
-
-            if path == "/api/share":
-                with _cfg_lock:
-                    cfg = load_config()
-                    cfg["lan"] = bool(body.get("lan", True))
-                    save_config(cfg)
-                port = self.server.server_address[1]
-                return self._json({"ok": True, "lan": cfg["lan"], "port": port,
-                                   "urls": lan_urls(port), "restart": True})
 
             if path == "/api/dyn/start":
                 try:
@@ -1675,7 +1665,7 @@ def say(msg: str) -> None:
 def start_server():
     """起 HTTP 服务（界面与局域网共用），返回 (server, port)"""
     Rotator().start()
-    host = "0.0.0.0" if load_config().get("lan", True) else "127.0.0.1"
+    host = "127.0.0.1"   # 只监听本机，不再对局域网开放
     for p in range(8770, 8790):
         try:
             return ThreadingHTTPServer((host, p), Handler), p
@@ -1810,8 +1800,6 @@ def main():
 
     url = f"http://127.0.0.1:{port}/"
     say(f"壁纸工坊已启动：{url}")
-    for lan in lan_urls(port):
-        say(f"局域网内其它设备可访问：{lan}")
 
     if browser_only:
         say("浏览器模式：关闭此窗口即退出服务。")
